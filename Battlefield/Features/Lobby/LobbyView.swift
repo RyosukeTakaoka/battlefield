@@ -19,6 +19,9 @@ struct LobbyView: View {
             Color.black.opacity(0.35).ignoresSafeArea()
             VStack(spacing: 14) {
                 Text("ロビー").font(Theme.font(30)).foregroundStyle(Theme.ink)
+                Text("\(humans) 人 + ボット \(controller.lobbyBots) 体(最大 \(GameRules.maxPlayers) 人)")
+                    .font(Theme.font(13, .bold)).foregroundStyle(Theme.ink.opacity(0.6))
+                ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(Array(controller.lobbyPlayers.enumerated()), id: \.offset) { _, p in
                         HStack(spacing: 8) {
@@ -35,6 +38,8 @@ struct LobbyView: View {
                 }
                 .foregroundStyle(Theme.ink)
                 .frame(width: 330)
+                }
+                .frame(maxHeight: 190)
 
                 if controller.isHost {
                     Picker("ルール", selection: $controller.lobbyKind) {

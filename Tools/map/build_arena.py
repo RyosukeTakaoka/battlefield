@@ -389,7 +389,10 @@ def make_spawns(H, obstacles):
 
 
 def make_loot(H, obstacles, rng):
-    """各名所に 8 か所(中心から 8〜48 m), 名所のあいだの道ぞいに 12 か所."""
+    """各名所に 10 か所(中心から 8〜48 m), 名所のあいだの道ぞいに 24 か所(合計 64. 16 人で 1 人 4 か所).
+
+    置き場の番号は 通信で 1 バイト(255 まで)なので, 増やすときは 255 をこえないこと.
+    """
     loot = []
 
     def try_add(x, z):
@@ -404,15 +407,15 @@ def make_loot(H, obstacles, rng):
 
     for _, px, pz in POIS:
         n, tries = 0, 0
-        while n < 8 and tries < 400:
+        while n < 10 and tries < 600:
             tries += 1
             a = rng.uniform(0, 2 * math.pi)
             d = rng.uniform(8, 48)
             n += try_add(px + d * math.cos(a), pz + d * math.sin(a))
-        if n < 8:
-            raise SystemExit("名所のひろうものが 8 か所に届きません")
+        if n < 10:
+            raise SystemExit("名所のひろうものが 10 か所に届きません")
     n, tries = 0, 0
-    while n < 12 and tries < 2000:
+    while n < 24 and tries < 4000:
         tries += 1
         a, b = ROADS[int(rng.integers(0, len(ROADS)))]
         t = rng.uniform(0.25, 0.75)

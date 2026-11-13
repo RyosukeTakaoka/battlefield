@@ -4,8 +4,8 @@ import Foundation
 /// 数字を変えたら, 設計書の表も同じコミットで直すこと.
 enum GameRules {
     // MARK: 試合
-    /// このゲームが耐えられる人数(Game Center の上限とは別. NETCODE を参照).
-    static let maxPlayers = 8
+    /// このゲームが耐えられる人数(Game Center の上限 16 人に合わせた. 実際の上限は起動時に Game Center に聞き, 小さい方を使う).
+    static let maxPlayers = 16
     /// 物理を進める固定の刻み(秒).
     static let tick: Float = 1.0 / 60
 

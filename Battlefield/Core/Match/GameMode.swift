@@ -31,7 +31,7 @@ struct GameMode: Equatable {
         case roundBattle = 0
         /// キル勝負: 2〜4 人. やられても 3 秒で復活. 先に N キル.
         case killRace = 1
-        /// バトルロイヤル: 2〜8 人. 最後の 1 人.
+        /// バトルロイヤル: 2〜16 人. 最後の 1 人.
         case battleRoyale = 2
     }
 

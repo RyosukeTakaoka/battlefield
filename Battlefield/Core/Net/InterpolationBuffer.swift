@@ -21,10 +21,10 @@ struct InterpolationBuffer {
 
     private(set) var samples: [Sample] = []
 
-    /// 画面に出す時刻を「今」よりどれだけ前にするか(秒). 送る間隔の 2 倍.
+    /// 画面に出す時刻を「今」よりどれだけ前にするか(秒)の基本の値(20 回/秒のとき). 人数で変わる値は `NetSession.renderDelay`.
     static let renderDelay = 0.1
     /// 新しいものが来ないとき, 最後の速度でのばす長さの上限(秒).
-    static let maxExtrapolation = 0.25
+    static let maxExtrapolation = 0.3
     /// これより大きく飛んだら補間しない(m).
     static let teleportDistance: Float = 5
     /// ためておく長さ(秒).

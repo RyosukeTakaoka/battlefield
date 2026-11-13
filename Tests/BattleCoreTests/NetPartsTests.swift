@@ -125,7 +125,7 @@ final class InterpolationTests: XCTestCase {
         b.add(state(1, t: 0, x: 0, vx: 6))
         b.add(state(2, t: 0.05, x: 0.3, vx: 6))
         XCTAssertEqual(try XCTUnwrap(b.pose(at: 0.15)).position.x, 0.3 + 0.6, accuracy: 0.01)         // 最後の速度でのばす
-        XCTAssertEqual(try XCTUnwrap(b.pose(at: 5)).position.x, 0.3 + 6 * 0.25, accuracy: 0.01)     // 250 ms で止まる
+        XCTAssertEqual(try XCTUnwrap(b.pose(at: 5)).position.x, 0.3 + 6 * Float(InterpolationBuffer.maxExtrapolation), accuracy: 0.01)     // のばすのは 0.3 秒まで
         var t = InterpolationBuffer()
         t.add(state(1, t: 0, x: 0))
         t.add(state(2, t: 0.05, x: 50))              // 50 m 飛んだ(やり直し・通信の乱れ)

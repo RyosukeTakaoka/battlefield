@@ -4,7 +4,7 @@ import UIKit
 
 /// 人形(箱を組んだもの). 骨のアニメーションは使わず, 部品の向きを式で動かす(Airplane の `CarpetRig` と同じ考え方).
 /// 歩き = あしを sin で前後に / うで = 視線の上下に合わせて 武器を上下 / やられた = うしろへたおれる.
-/// 色は slot ごとに 8 色. 色だけに頼らないよう, 頭の上の形も変える.
+/// 色は slot ごとに 16 色(16 人まで 全員ちがう色). 色だけに頼らないよう, 頭の上の形も 4 種類で変える.
 @MainActor
 final class CharacterRig {
     let root = Entity()
@@ -23,6 +23,10 @@ final class CharacterRig {
         UIColor(red: 0.95, green: 0.80, blue: 0.20, alpha: 1), UIColor(red: 0.35, green: 0.78, blue: 0.40, alpha: 1),
         UIColor(red: 0.70, green: 0.40, blue: 0.90, alpha: 1), UIColor(red: 1.00, green: 0.55, blue: 0.15, alpha: 1),
         UIColor(red: 0.30, green: 0.85, blue: 0.85, alpha: 1), UIColor(red: 0.95, green: 0.50, blue: 0.75, alpha: 1),
+        UIColor(red: 0.55, green: 0.35, blue: 0.20, alpha: 1), UIColor(red: 0.95, green: 0.95, blue: 0.95, alpha: 1),
+        UIColor(red: 0.25, green: 0.25, blue: 0.30, alpha: 1), UIColor(red: 0.60, green: 0.85, blue: 0.20, alpha: 1),
+        UIColor(red: 0.15, green: 0.30, blue: 0.70, alpha: 1), UIColor(red: 0.75, green: 0.15, blue: 0.20, alpha: 1),
+        UIColor(red: 1.00, green: 0.80, blue: 0.60, alpha: 1), UIColor(red: 0.45, green: 0.60, blue: 0.55, alpha: 1),
     ]
 
     init(slot: Int) {

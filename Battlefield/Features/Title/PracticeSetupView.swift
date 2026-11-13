@@ -10,7 +10,7 @@ struct PracticeSetupView: View {
     private var botRange: ClosedRange<Int> {
         switch kind {
         case .roundBattle, .killRace: return 1...3        // 自分を入れて 2〜4 人
-        case .battleRoyale: return 1...7                  // 2〜8 人
+        case .battleRoyale: return 1...(GameRules.maxPlayers - 1)     // 2〜16 人
         }
     }
 
@@ -79,7 +79,7 @@ struct PracticeSetupView: View {
         switch k {
         case .roundBattle: return "2〜4 人・先に 3 ラウンド"
         case .killRace: return "2〜4 人・復活あり"
-        case .battleRoyale: return "2〜8 人・最後の 1 人"
+        case .battleRoyale: return "2〜16 人・最後の 1 人"
         }
     }
 }

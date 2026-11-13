@@ -56,9 +56,11 @@ struct NetSession {
     private var lastPing: Double = -1000
     private var pingsSent = 0
 
-    static let stateInterval = 1.0 / 20
-    static let stateIntervalCrowded = 1.0 / 15
-    static let crowdedHumans = 5
+    /// 自分の状態を送る間かく. 全員が全員へ送るので, 人が多いほど回数を減らす(相手の動きは補間で なめらかにする).
+    /// 2〜4 人: 20 回/秒, 5〜8 人: 15 回/秒, 9〜16 人: 10 回/秒.
+    static func stateInterval(humans: Int) -> Double {
+        humans >= 9 ? 1.0 / 10 : (humans >= 5 ? 1.0 / 15 : 1.0 / 20)
+    }
 
     init(world: ArenaWorld, myKey: UInt64, name: String, seed: UInt64 = 1) {
         self.world = world
@@ -84,9 +86,12 @@ struct NetSession {
 
     func hostNow(local: Double) -> Double { clock.hostTime(local: local) }
 
-    /// 相手の, 画面に出す姿(「今 - 100 ms」の補間).
+    /// 相手の姿を「今」より どれだけ前で見せるか: 送る間隔の 2 倍(1 個抜けても つなげる). 2〜4 人で 100 ms, 9 人以上で 200 ms.
+    var renderDelay: Double { 2 * Self.stateInterval(humans: humanCount) }
+
+    /// 相手の, 画面に出す姿(「今 - renderDelay」の補間).
     func remotePose(slot: Int, now: Double) -> RemotePose? {
-        buffers[slot]?.pose(at: hostNow(local: now) - InterpolationBuffer.renderDelay)
+        buffers[slot]?.pose(at: hostNow(local: now) - renderDelay)
     }
 
     /// 最後に届いた姿(当たり判定の位置・ホストの引きつぎに使う).
@@ -162,7 +167,7 @@ struct NetSession {
         if status == .inMatch {
             // 自分の状態を送る.
             if let l = local, let slot = mySlot, match.participant(slot)?.alive == true {
-                let interval = humanCount >= Self.crowdedHumans ? Self.stateIntervalCrowded : Self.stateInterval
+                let interval = Self.stateInterval(humans: humanCount)
                 if now - lastStateSend >= interval {
                     lastStateSend = now
                     seq &+= 1

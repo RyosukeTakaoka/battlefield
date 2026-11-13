@@ -12,6 +12,7 @@ struct ResultView: View {
                     Text(r.iWon ? "勝ち!" : (r.winnerName.map { "\($0) の勝ち" } ?? "おしまい"))
                         .font(Theme.font(42)).foregroundStyle(r.iWon ? Theme.gold : Theme.ink)
                     Text(r.modeText).font(Theme.font(14, .bold)).foregroundStyle(Theme.ink.opacity(0.6))
+                    ScrollView {
                     VStack(spacing: 6) {
                         ForEach(r.rows) { row in
                             HStack(spacing: 10) {
@@ -27,6 +28,8 @@ struct ResultView: View {
                         }
                     }
                     .foregroundStyle(Theme.ink).frame(width: 380)
+                    }
+                    .frame(maxHeight: 230)
                     HStack(spacing: 16) {
                         if controller.isHost {
                             Button { controller.rematch() } label: { Label("もう一度", systemImage: "arrow.clockwise") }

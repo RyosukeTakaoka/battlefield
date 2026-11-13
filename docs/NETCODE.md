@@ -10,7 +10,7 @@
 
 | こと | だれが決めるか | 送り方 |
 |---|---|---|
-| 自分の位置・向き | 自分の端末 | 信頼なし. 1 秒に 20 回, 全員へ |
+| 自分の位置・向き | 自分の端末 | 信頼なし. 1 秒に 20 回(5〜8 人は 15 回, 9〜16 人は 10 回), 全員へ |
 | 撃った線(見た目) | 撃った人 | 信頼なし. 全員へ |
 | 当たったか | 撃った人の端末が調べて, ホストへ申し出る(`hitClaim`) | 信頼あり. ホストへ |
 | ダメージ・やられた・順位 | **ホスト** | 信頼あり. 全員へ |
@@ -91,7 +91,7 @@ struct Outgoing { var data: Data; var to: [PeerHandle]?; var reliable: Bool }
 
 | 種類 | 名前 | だれ → だれ | 中身 |
 |---|---|---|---|
-| 0x01 | playerState | 各自(ボットはホスト)→ 全員. 20 回/秒 | slot U8, seq U16, timeMs U32, x・y・z I16×3, yaw U16, pitch I8, vx・vy・vz I8×3, flags U8, weapon U8(計 22 バイト) |
+| 0x01 | playerState | 各自(ボットはホスト)→ 全員. 20 / 15 / 10 回/秒(人数で) | slot U8, seq U16, timeMs U32, x・y・z I16×3, yaw U16, pitch I8, vx・vy・vz I8×3, flags U8, weapon U8(計 22 バイト) |
 | 0x02 | shotFx | 撃った人 → 全員 | slot U8, weapon U8, origin I16×3, count U8, [end I16×3, hitKind U8] × count |
 | 0x12 | ping | 各自 → ホスト. 2 秒ごと(始めの 5 回は 0.3 秒ごと) | clientMs U32 |
 | 0x13 | pong | ホスト → 送ってきた人 | clientMs U32, hostMs U32 |
@@ -169,7 +169,7 @@ ping を送る(自分の時刻 t0)→ ホストが pong(t0, ホストの時刻 h
 ## 7. 相手を なめらかに見せる(`InterpolationBuffer`)
 
 - slot ごとに, 届いた `playerState` を時刻の順に 1 秒ぶん ためる.
-- 画面に出すのは **「今 - 100 ms」の時刻**(送る間隔の 2 倍. 1 個抜けても つなげる). 前後の 2 つを時刻の割合でまっすぐ補間.
+- 画面に出すのは **「今 - 送る間隔の 2 倍」の時刻**(2〜4 人は 100 ms, 5〜8 人は 133 ms, 9〜16 人は 200 ms. 1 個抜けても つなげる. `NetSession.renderDelay`). 前後の 2 つを時刻の割合でまっすぐ補間.
   yaw は近い回り方で補間する(359° → 1° を 逆に回らない).
 - 新しいものが来ない(バッファの先に出た)ときは, 最後の速度で 250 ms まで先へのばし, それより長いときは止める.
 - 5 m より大きく飛んだら(やり直し・通信の乱れ), 補間せずに その場所へ移す.
@@ -203,13 +203,14 @@ ping を送る(自分の時刻 t0)→ ホストが pong(t0, ホストの時刻 h
 | ファイル | やること | 使う API(公式ドキュメントで確かめる) |
 |---|---|---|
 | `GameCenterAuth` | アプリを開いたらログイン. できない・制限されているときは「オンライン対戦」を押せなくする | `GKLocalPlayer.local.authenticateHandler`, `isAuthenticated`, `isMultiplayerGamingRestricted`, `GKAccessPoint` |
-| `Matchmaking` | 人あつめの画面を出す. 招待を受ける | `GKMatchRequest`(`minPlayers` 2, `maxPlayers` = `min(8, GKMatchRequest.maxPlayersAllowedForMatch(of: .peerToPeer))`. **8 や 4 と決め打ちしない**), `GKMatchmakerViewController`, `GKMatchmakerViewControllerDelegate`, `GKLocalPlayerListener`(`player(_:didAccept:)`), `GKMatchmaker.shared().finishMatchmaking(for:)` |
+| `Matchmaking` | 人あつめの画面を出す. 招待を受ける | `GKMatchRequest`(`minPlayers` 2, `maxPlayers` = `min(16, GKMatchRequest.maxPlayersAllowedForMatch(of: .peerToPeer))`. **16 や 4 と決め打ちしない**), `GKMatchmakerViewController`, `GKMatchmakerViewControllerDelegate`, `GKLocalPlayerListener`(`player(_:didAccept:)`), `GKMatchmaker.shared().finishMatchmaking(for:)` |
 | `GameKitTransport` | `MatchTransport` の実物 | `GKMatch.delegate`, `players`, `expectedPlayerCount`, `send(_:to:dataMode:)`, `sendData(toAllPlayers:with:)`, `disconnect()`, `GKMatchDelegate` の `match(_:didReceive:fromRemotePlayer:)`・`match(_:player:didChange:)`・`match(_:didFailWithError:)` |
 
 気をつけること:
 
 - 人数の上限は Apple の文書に数字が無い. 起動時に聞いた値をログと「通信のようす」に出し, ロビーの「あと何人入れるか」もその値で出す.
-  Core の `GameRules.maxPlayers`(= 8)は「このゲームが耐えられる数」で, Game Center の上限とは別のもの.
+  Core の `GameRules.maxPlayers`(= 16)は「このゲームが耐えられる数」. Apple の文書では Game Center の上限も 16 だが, 小さい方を使う.
+  メッセージを読むときも 17 人以上の名簿は捨てる(`MessageCodec.maxPlayers`).
 
 - delegate は, どのスレッドで呼ばれるか決まっていないと考える. かならずメインへ渡してから Core にさわる.
 - `GKMatch.players` に **自分は入っていない**.

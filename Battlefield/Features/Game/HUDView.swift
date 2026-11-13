@@ -174,9 +174,17 @@ private struct ScoreBoard: View {
     let lines: [BattleController.ScoreLine]
     let mode: String
 
+    /// 16 人でも 画面をうめないよう, 上位 5 人 + 自分 だけ出す.
+    private var shown: [BattleController.ScoreLine] {
+        let sorted = lines.sorted { mode == "ラウンド戦" ? ($0.score, $0.kills) > ($1.score, $1.kills) : $0.kills > $1.kills }
+        var top = Array(sorted.prefix(5))
+        if let me = sorted.first(where: \.isMe), !top.contains(where: \.isMe) { top.append(me) }
+        return top
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            ForEach(lines) { l in
+            ForEach(shown) { l in
                 HStack(spacing: 6) {
                     Circle().fill(CharacterRig.colors[l.id % CharacterRig.colors.count].swiftUI).frame(width: 9, height: 9)
                     Text(l.name).lineLimit(1)

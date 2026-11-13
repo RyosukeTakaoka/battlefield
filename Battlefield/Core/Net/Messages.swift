@@ -5,7 +5,7 @@ enum MessageCodec {
     /// 通信の版. 形を変えたら 1 増やす(版が違う人とは試合を始めない).
     static let protocolVersion: UInt8 = 1
 
-    static let maxPlayers = 8
+    static let maxPlayers = GameRules.maxPlayers
     static let maxShots = 16
     static let maxZones = 8
     static let maxLoot = 255
