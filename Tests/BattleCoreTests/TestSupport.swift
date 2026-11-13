@@ -28,3 +28,29 @@ func pphfData(cols: Int, rows: Int, originX: Float, originZ: Float, cell: Float,
     }
     return d
 }
+
+/// 試験用の世界: 高さ 2 m の平らな陸(x: -40〜40, z: -40〜40).
+/// x > 30 は海(-5 m), z > 20 は急な坂(傾き 2 = 約 63°)になる.
+func makeWorld(obstacles: [MapData.Obstacle] = [], loot: [[Float]] = []) -> ArenaWorld {
+    let hf = makeHeightfield(cols: 81, rows: 81, cell: 1, originX: -40, originZ: 40) { x, z in
+        if x > 30 { return -5 }
+        if z > 20 { return 2 + (z - 20) * 2 }
+        return 2
+    }
+    var map = MapData(id: "test", name: "test")
+    map.obstacles = obstacles
+    map.loot = loot
+    return ArenaWorld(map: map, terrain: hf)
+}
+
+/// 入力を dt 刻みで seconds 秒ぶん与えて進める.
+func simulate(_ state: inout PlayerState, input: PlayerInput, world: ArenaWorld, seconds: Float, dt: Float = GameRules.tick) {
+    let n = Int((seconds / dt).rounded())
+    for _ in 0..<n { CharacterMotor.step(&state, input: input, world: world, dt: dt) }
+}
+
+func standingPlayer(_ x: Float = 0, _ z: Float = 0, yaw: Float = 0) -> PlayerState {
+    var p = PlayerState(position: Vec3(x, 2, z), yaw: yaw)
+    p.isGrounded = true
+    return p
+}

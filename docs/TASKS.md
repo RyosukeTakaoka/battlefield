@@ -9,7 +9,7 @@
 | | マイルストーン | できること | 実機での確認 |
 |---|---|---|---|
 | ☑ | M0 土台 | フォルダとプロジェクトがあり, `swift test` が通る | |
-| ☐ | M1 世界と動き(Core) | 当たり判定と, 人の動きの計算 | |
+| ☑ | M1 世界と動き(Core) | 当たり判定と, 人の動きの計算 | |
 | ☐ | M2 島のデータ | 島の高さ・地面の絵・小物の置き場 | |
 | ☐ | M3 描画と操作 | **1 人で島を歩き回れる** | ★ 1 回目 |
 | ☐ | M4 戦いとルール(Core) | 武器・当たり・ダメージ・ラウンド戦のルール | |
@@ -81,7 +81,19 @@ Airplane から写したファイルの一覧が「次の人へ」に書いて�
 - `raycast`: 地面・箱(回したものも)・円柱に, 正しい距離(±0.1 m)で当たる. 何も無ければ `nil`
 - `arenaSpawns`: 2・3・4 人で, 全員が陸の上・障害物の外・たがいに 30 m 以上
 
-**次の人へ**:
+**次の人へ**(M1 完了. `swift test` 37 件):
+
+- 追加したファイル: `Math/SeededRandom.swift`, `Match/GameRules.swift`(プレイヤーの数字だけ. 武器・円は M4 で足す),
+  `World/MapData.swift`, `World/ArenaWorld.swift`, `Player/{PlayerInput,PlayerState,CharacterMotor}.swift`.
+- `MapData` の JSON の決まり(DESIGN の例から変えた所): `props` は **配列形式** `[名前, 番号, x, y, z, 向き, sx, sy, sz]`(Airplane と同じ.
+  たくさんあるので短く). 障害物: `box` = `p` が **中心**・`half` が半分の大きさ・`yaw` が Y まわりの回転(小物の向きと同じ約束),
+  `cyl` = `p` が **底の中心**・`r`・`h`. 名所 `pois[].p` は `[x, z]`.
+- `ArenaWorld`: `surfaceHeight(x:z:feetY:)`(足から段差ぶんまでの天面にだけ乗れる), `resolveMove`(半径の半分ずつ分けて動かすので薄いかべもすりぬけない),
+  `raycast`, `arenaSpawns(centerX:centerZ:radius:count:fraction:angleOffset:)`(見つからなければ `nil`), `isClear`.
+- 向きの約束: `yaw` 0 で -Z, 時計回りが +. 前 = (sin yaw, 0, -cos yaw), 右 = (cos yaw, 0, sin yaw). 箱の `yaw` は小物と同じ(`PropInstance` を `append` する式).
+- 地上の動きは入力にすぐ追いつく(加速なし). 空中は `airControl` で少しだけ. ジャンプ中の横の速さは地上の速さを引きつぐ.
+- 1 m の箱は, かべに寄ってジャンプすれば乗れる(0.5 m までは歩いて乗る).
+- テストの世界(`TestSupport.makeWorld`): 高さ 2 m の平地, x > 30 は海, z > 20 は急な坂. 開始位置を z > 20 に置くと坂の上になるので注意.
 
 ---
 
