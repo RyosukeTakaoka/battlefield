@@ -41,7 +41,7 @@ struct MatchState: Equatable {
     var participants: [Participant] = []
     var loot: [LootItem] = []
     var zone = Zone.empty
-    var arena = Circle(x: 0, z: 0, r: 0)
+    var arena = Disc(x: 0, z: 0, r: 0)
     var loadoutSet = 0
     var startAt: Double = 0
     var mapId = 0

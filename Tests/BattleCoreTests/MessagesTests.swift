@@ -18,8 +18,8 @@ final class MessagesTests: XCTestCase {
         return [
             .hello(HelloMessage(protocolVersion: 1, peerKey: 0x0123_4567_89AB_CDEF, name: "Ryosuke")),
             .startRound(StartRoundMessage(matchId: 4_000_000_000, round: 3, mode: .battleRoyale, mapId: 0, startAt: 105.05,
-                                          arena: Circle(x: -80, z: 40.5, r: 60), loadoutSet: 4, players: players,
-                                          zones: [Circle(x: -70, z: 30, r: 34.2), Circle(x: -70, z: 30, r: 0)],
+                                          arena: Disc(x: -80, z: 40.5, r: 60), loadoutSet: 4, players: players,
+                                          zones: [Disc(x: -70, z: 30, r: 34.2), Disc(x: -70, z: 30, r: 0)],
                                           loot: [LootSpawn(id: 0, kind: .shield), LootSpawn(id: 43, kind: .sniper)])),
             .playerState(PlayerStateMessage(slot: 3, seq: 65535, timeMs: 123_456, position: Vec3(1.23, 4.56, -7.89), yaw: 0, pitch: 0,
                                             velocity: Vec3(6, -2.5, 0), flags: [.grounded, .firing, .alive], weapon: .shotgun)),

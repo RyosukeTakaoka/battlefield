@@ -32,11 +32,11 @@ struct StartRoundMessage: Equatable {
     var mapId: Int
     /// ホストの時計(秒)で, この時刻に試合の時計が 0 になる(= 戦い始め).
     var startAt: Double
-    var arena: Circle
+    var arena: Disc
     /// 0 = ハンドガンだけ, 1〜5 = ラウンド戦の武器の組.
     var loadoutSet: Int
     var players: [PlayerSlotInfo]
-    var zones: [Circle]
+    var zones: [Disc]
     var loot: [LootSpawn]
 }
 

@@ -2,24 +2,24 @@ import Foundation
 
 /// 安全地帯. 「試合の時計」だけで円が決まる(試合中に円のための通信はしない).
 struct Zone: Equatable {
-    var initial: Circle
+    var initial: Disc
     /// 各段階の終わりの円(ホストが開始のときに全部決めて配る).
-    var ends: [Circle]
+    var ends: [Disc]
     var stages: [ZoneStage]
     /// 段階の無いルールの, 円の外のダメージ.
     var outsideDPS: Int
 
-    static let empty = Zone(initial: Circle(x: 0, z: 0, r: 0), ends: [], stages: [], outsideDPS: 0)
+    static let empty = Zone(initial: Disc(x: 0, z: 0, r: 0), ends: [], stages: [], outsideDPS: 0)
 
     /// 試合の時計 t(秒. 始まりが 0)での円.
-    func circle(at t: Float) -> Circle {
+    func circle(at t: Float) -> Disc {
         var prev = initial
         var t0: Float = 0
         for (i, st) in stages.enumerated() where i < ends.count {
             let end = ends[i]
             if t < t0 + st.wait { return prev }
             if t < t0 + st.wait + st.shrink {
-                return Circle.lerp(prev, end, (t - t0 - st.wait) / max(st.shrink, 1e-3))
+                return Disc.lerp(prev, end, (t - t0 - st.wait) / max(st.shrink, 1e-3))
             }
             prev = end
             t0 += st.wait + st.shrink

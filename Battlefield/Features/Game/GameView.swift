@@ -3,7 +3,7 @@ import SwiftUI
 
 /// RealityKit の ARView を SwiftUI に置くための包み.
 struct GameView: UIViewRepresentable {
-    let controller: FlightController
+    let controller: BattleController
 
     func makeUIView(context: Context) -> ARView {
         controller.makeView()

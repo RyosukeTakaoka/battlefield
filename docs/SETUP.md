@@ -51,18 +51,36 @@ python3 Tools/map/build_arena.py
 
 ## 最初のビルドで確かめること(AI が書き足していく表)
 
-Linux で書いたため, まだコンパイルしていない Apple の API の一覧です. **AI は, Apple の部品を使うコードを書いたら, かならずここに足すこと.**
+Linux で書いたため, Apple の部品を使うファイルは **まだ一度もコンパイルしていません**(文法だけは `swiftc -parse` で確かめた).
+Core(`Battlefield/Core/`)は Linux で 150 件のテストが通っています. 下の表のとおり, 使っている API の一覧です.
+エラーが出たら, 赤い文字を そのまま AI に貼ってください.
 
-| 場所 | 使っている API | ビルドできたか |
+| 場所 | 使っている API | 根拠 |
 |---|---|---|
-| (M0 で書く) `Rendering/AssetLibrary.swift` | `Entity.load(named:in:)`, `MeshResource.contents`, `TextureResource.load(contentsOf:withName:options:)` | Airplane で使用ずみ |
-| (M0 で書く) `Rendering/PostProcess/PostProcessor.swift` | `ARView.renderCallbacks.postProcess`, `ARView.PostProcessContext` | Airplane で使用ずみ |
-| (M3) `Rendering/SceneDirector.swift` | `ARView(frame:cameraMode:automaticallyConfigureSession:)`, `renderOptions`, `EnvironmentResource(equirectangular:)`, `DirectionalLightComponent.Shadow`, `SceneEvents.Update` | Airplane で使用ずみ |
-| (M3) `Features/Game/TouchControlsView.swift` | `UIViewRepresentable`, `touchesBegan / Moved / Ended / Cancelled`, `isMultipleTouchEnabled` | |
-| (M7) `Services/GameCenter/*` | NETCODE §10 の表 | |
+| `Rendering/AssetLibrary.swift`, `PostProcess/*`, `Materials.swift` | `Entity.load(named:in:)`, `MeshResource.contents`, `TextureResource.load`, `ARView.renderCallbacks.postProcess`, `PhysicallyBasedMaterial`, `UnlitMaterial` | Airplane でそのまま使用ずみ |
+| `Rendering/SceneDirector.swift` | `ARView(frame:cameraMode:automaticallyConfigureSession:)`, `renderOptions`, `EnvironmentResource(equirectangular:)`, `DirectionalLightComponent.Shadow`, `SceneEvents.Update`, `PerspectiveCamera` | Airplane の `SceneDirector` と同じ |
+| `Rendering/ArenaScene.swift` | `ModelEntity(mesh:materials:)`, `MeshResource.generateBox(size:)`, `Task.detached` で作ったメッシュを `MeshData.meshResource` へ | Airplane の `CourseScene.build` と同じ形 |
+| `Rendering/CharacterRig.swift` | `ModelEntity()`, `ModelComponent(mesh:materials:)`, `MeshResource.generateBox(size:cornerRadius:)`, `generateSphere(radius:)`, `simd_quatf` | 新しく書いた(RealityKit の基本の API) |
+| `Rendering/CombatEffects.swift` | `Entity.look(at:from:relativeTo:)`, `isEnabled`, `scale` | 新しく書いた |
+| `Game/BattleController.swift` | `@Observable`, `@ObservationIgnored`, `ProcessInfo.systemUptime` | iOS 17 の Observation |
+| `Features/Game/TouchControlsView.swift` | `UIViewRepresentable`, `touchesBegan / Moved / Ended / Cancelled`, `isMultipleTouchEnabled`, `TimelineView(.periodic)` | 新しく書いた |
+| `Features/Game/HUDView.swift`, `MinimapView.swift` | `Canvas`, `Path`, `.blendMode(.destinationOut)` + `compositingGroup()`, `Image(uiImage:)` | 新しく書いた |
+| `Features/*` | `@Environment(AppModel.self)`, `@Bindable`, `confirmationDialog`, `Picker(.segmented)` | iOS 17 |
+| `Services/Audio/SoundEngine.swift` | `AVAudioEngine`, `AVAudioPlayerNode`, `AVAudioPCMBuffer` | Airplane の方式 |
+| `Services/GameCenter/GameCenterAuth.swift` | `GKLocalPlayer.local.authenticateHandler`, `isAuthenticated`, `isMultiplayerGamingRestricted`, `displayName` | Apple の文書で確認(2026-11-13) |
+| `Services/GameCenter/Matchmaking.swift` | `GKMatchRequest`(`minPlayers`, `maxPlayers`, `maxPlayersAllowedForMatch(of:)`), `GKMatchmakerViewController(matchRequest:)` / `(invite:)`, `matchmakerDelegate`, `GKMatchmakerViewControllerDelegate`(`didFind` / `WasCancelled` / `didFailWithError`), `GKLocalPlayer.local.register(_:)`, `GKInviteEventListener.player(_:didAccept:)` | Apple の文書で確認 |
+| `Services/GameCenter/GameKitTransport.swift` | `GKMatch`(`players`, `expectedPlayerCount`, `delegate`, `send(_:to:dataMode:)`, `sendData(toAllPlayers:with:)`, `disconnect()`), `GKMatch.SendDataMode`(`.reliable` / `.unreliable`), `GKMatchDelegate`(`match(_:didReceive:fromRemotePlayer:)`, `match(_:player:didChange:)`, `match(_:didFailWithError:)`), `GKPlayerConnectionState` | Apple の文書で確認 |
+
+特に エラーが出やすそうな所(コンパイルしていないため):
+- `GameKitTransport` / `Matchmaking` の `nonisolated` なデリゲートの書き方(Swift の並行処理の設定で 警告が出ることがある. 警告なら そのままで動く).
+- `ArenaScene.build` の `Task.detached`(Airplane と同じ形).
+- `HUDView` の `ScopeOverlay`(穴あきのマスク).
 
 ## 実機で見て確かめること(Airplane と同じ注意)
 
+- **島の絵の向き**: 村の広場(灰色の円)が 実際の村の家の下にあるか. ずれていたら `AssetLibrary.detectUVOrigin` の判定か `ArenaScene.build` の絵の割りふり(`island_0〜3` = 西北・東北・西南・東南)を確かめる
+- **ボタンの大きさ・場所**: iPhone / iPad で押しやすいか(`Core/Input/TouchLayout.swift` の `buttons`)
+- **ねらいやすさ**: 感度(設定)・構えたときの感度(`BattleController.update` の `sens`)
 - 地面の絵の向き: 絵の道と, 実際の名所の場所が合っているか(UV の上下は `AssetLibrary.detectUVOrigin` が起動時に判定)
 - 明るさ: 白く飛ぶ・暗すぎるときは `SceneDirector` の太陽と環境光の数字を直す
 - 霧: 真っ白・真っ黒になるときは, いったん `PostProcessor` を外して確かめる

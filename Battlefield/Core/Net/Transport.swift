@@ -5,6 +5,8 @@ typealias PeerHandle = Int
 
 /// 送る・受ける だけの口. 中身(ルール)は知らない. `docs/NETCODE.md` §2.
 /// 実物は 3 つ: `GameKitTransport`(本番) / `LoopbackTransport`(1 人 + ボット) / テスト用の `SimulatedNetwork`.
+/// 画面と同じ「メインスレッド」で使う(`GameKitTransport` は GameKit の呼び出しをメインへ渡してから Core にさわる).
+@MainActor
 protocol MatchTransport: AnyObject {
     /// つながっている相手(自分は入らない).
     var peers: [PeerHandle] { get }
@@ -17,6 +19,7 @@ protocol MatchTransport: AnyObject {
 }
 
 /// 相手がいない口(「れんしゅう」: 自分がホストで, 相手はボット).
+@MainActor
 final class LoopbackTransport: MatchTransport {
     var peers: [PeerHandle] { [] }
     var onReceive: ((Data, PeerHandle) -> Void)?

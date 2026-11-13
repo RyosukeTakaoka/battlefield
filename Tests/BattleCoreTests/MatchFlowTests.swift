@@ -34,7 +34,7 @@ final class MatchFlowTests: XCTestCase {
     func testRoundBattleFirstToThree() throws {
         let h = MatchHarness(world: try loadIsland(), seed: 11)
         h.begin(.roundBattle, players: 2)
-        var sets: [Int] = [], arenas: [Circle] = []
+        var sets: [Int] = [], arenas: [Disc] = []
         let winners = [1, 0, 1, 0, 1]                       // P1 が 3 点で先に勝つ
         for (r, w) in winners.enumerated() {
             XCTAssertEqual(h.state.round, r)

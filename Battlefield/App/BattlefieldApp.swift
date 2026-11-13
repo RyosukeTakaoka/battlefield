@@ -4,12 +4,16 @@ import SwiftUI
 /// 画面は SwiftUI, 3D は RealityKit, ルール・動き・通信の中身は `Core/`(描画から独立).
 @main
 struct BattlefieldApp: App {
+    @State private var model = AppModel()
+
     var body: some Scene {
         WindowGroup {
-            TitleView()
+            RootView()
+                .environment(model)
                 .preferredColorScheme(.light)
                 .statusBarHidden()
                 .persistentSystemOverlays(.hidden)
+                .task { model.onLaunch() }
         }
     }
 }

@@ -1,23 +1,23 @@
 import AVFoundation
 import Foundation
 
-/// 効果音. 音声ファイルを使わず, 起動時にその場で波形を作る.
+/// 効果音. 音声ファイルを使わず, 起動時にその場で波形を作る(Airplane の方式).
 ///
-/// - 風の音: ノイズをくり返し流し, 速さに合わせて音量と明るさ(フィルタ)を変える.
-/// - リング: 澄んだ鐘の音(パーフェクトとブーストは音を足す).
-/// - 投げる・着地・水しぶき・ゴール・ボタン.
+/// - 武器 4 種の発射音・リロード・弾切れ
+/// - 当たった(体 / 頭)・撃たれた・やられた・ひろった
+/// - ラウンドの勝ち・負け・カウントダウン・円の警告・ボタン
 ///
-/// 授業中に音が出ないよう, 消音スイッチに従う(`.ambient`). ほかのアプリの音も止めない.
+/// 消音スイッチに従う(`.ambient`). ほかのアプリの音も止めない.
 @MainActor
 final class SoundEngine {
     enum Effect: CaseIterable {
-        case launch, ring, ringPerfect, boost, combo, updraft, stall, landGround, landWater, landCloud, finish, tap
-        case gem, checkpoint, warp, fail, countdown, go, skid, boss
+        case shotHandgun, shotRifle, shotShotgun, shotSniper
+        case reload, empty, switchWeapon
+        case hit, headshot, hurt, eliminated, pickup, heal
+        case roundWin, roundLose, countdown, go, zoneWarning, tap, step
     }
 
     private let engine = AVAudioEngine()
-    private let windPlayer = AVAudioPlayerNode()
-    private let windEQ = AVAudioUnitEQ(numberOfBands: 1)
     private var players: [AVAudioPlayerNode] = []
     private var nextPlayer = 0
     private var buffers: [Effect: AVAudioPCMBuffer] = [:]
@@ -27,14 +27,7 @@ final class SoundEngine {
 
     init() {
         format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
-        windEQ.bands[0].filterType = .lowPass
-        windEQ.bands[0].frequency = 600
-        windEQ.bands[0].bypass = false
-        engine.attach(windPlayer)
-        engine.attach(windEQ)
-        engine.connect(windPlayer, to: windEQ, format: format)
-        engine.connect(windEQ, to: engine.mainMixerNode, format: format)
-        for _ in 0..<6 {
+        for _ in 0..<10 {
             let p = AVAudioPlayerNode()
             engine.attach(p)
             engine.connect(p, to: engine.mainMixerNode, format: format)
@@ -52,11 +45,6 @@ final class SoundEngine {
             engine.mainMixerNode.outputVolume = volume
             try engine.start()
             started = true
-            if let wind = Self.windLoop(format: format) {
-                windPlayer.scheduleBuffer(wind, at: nil, options: .loops)
-                windPlayer.volume = 0
-                windPlayer.play()
-            }
             players.forEach { $0.play() }
         } catch {
             started = false
@@ -65,7 +53,6 @@ final class SoundEngine {
 
     func stop() {
         guard started else { return }
-        windPlayer.stop()
         players.forEach { $0.stop() }
         engine.stop()
         started = false
@@ -78,14 +65,6 @@ final class SoundEngine {
         p.volume = gain
         p.scheduleBuffer(buffer, at: nil, options: .interrupts)
         if !p.isPlaying { p.play() }
-    }
-
-    /// 風の音. speed01 は 0〜1(速いほど大きく, 高い音が増える).
-    func setWind(speed01: Float, active: Bool) {
-        guard started else { return }
-        let target = active ? 0.08 + speed01 * 0.32 : 0
-        windPlayer.volume += (target - windPlayer.volume) * 0.15
-        windEQ.bands[0].frequency = 350 + speed01 * 1600
     }
 
     // MARK: - 波形を作る
@@ -110,139 +89,96 @@ final class SoundEngine {
         var rng = SystemRandomNumberGenerator()
         func noise() -> Double { Double.random(in: -1...1, using: &rng) }
         switch effect {
-        case .ring:
-            return buffer(format, seconds: 0.9) { _, t in
-                Float((bell(t, freq: 1046.5) + bell(max(0, t - 0.07), freq: 1318.5) * (t > 0.07 ? 1 : 0)) * 0.35)
-            }
-        case .ringPerfect:
-            return buffer(format, seconds: 1.1) { _, t in
-                let notes = [1046.5, 1318.5, 1568.0, 2093.0]
-                var v = 0.0
-                for (k, f) in notes.enumerated() where t > Double(k) * 0.06 { v += bell(t - Double(k) * 0.06, freq: f) }
-                return Float(v * 0.24)
-            }
-        case .boost:
-            return buffer(format, seconds: 0.8) { _, t in
-                let sweep = sin(2 * .pi * (400 * t + 900 * t * t)) * exp(-t * 3) * 0.3
-                return Float(sweep + bell(t, freq: 1568) * 0.2)
-            }
-        case .combo:
-            return buffer(format, seconds: 0.5) { _, t in Float(bell(t, freq: 2349.3, decay: 8) * 0.25) }
-        case .launch:
+        case .shotHandgun:
             var lp = 0.0
-            return buffer(format, seconds: 0.6) { _, t in
-                lp += (noise() - lp) * (0.05 + t * 0.4)
-                return Float(lp * sin(min(1, t / 0.6) * .pi) * 0.9)
+            return buffer(format, seconds: 0.25) { _, t in
+                lp += (noise() - lp) * 0.35
+                return Float((lp * exp(-t * 28) * 0.9 + sin(2 * .pi * 170 * t) * exp(-t * 30) * 0.5) * 0.9)
             }
-        case .updraft:
+        case .shotRifle:
             var lp = 0.0
-            return buffer(format, seconds: 1.2) { _, t in
-                lp += (noise() - lp) * 0.08
-                return Float(lp * sin(t / 1.2 * .pi) * 0.5 + sin(2 * .pi * (300 + 200 * t) * t) * 0.05 * exp(-t))
+            return buffer(format, seconds: 0.18) { _, t in
+                lp += (noise() - lp) * 0.45
+                return Float((lp * exp(-t * 34) * 0.9 + sin(2 * .pi * 140 * t) * exp(-t * 40) * 0.45) * 0.8)
             }
-        case .stall:
-            return buffer(format, seconds: 0.45) { _, t in
-                Float(sin(2 * .pi * 220 * t) * (sin(2 * .pi * 18 * t) > 0 ? 1 : 0.3) * exp(-t * 4) * 0.25)
-            }
-        case .landGround:
+        case .shotShotgun:
             var lp = 0.0
             return buffer(format, seconds: 0.5) { _, t in
-                lp += (noise() - lp) * 0.12
-                return Float(lp * exp(-t * 9) * 1.2 + sin(2 * .pi * 90 * t) * exp(-t * 14) * 0.4)
+                lp += (noise() - lp) * 0.2
+                return Float((lp * exp(-t * 12) * 1.1 + sin(2 * .pi * 90 * t) * exp(-t * 14) * 0.7) * 0.9)
             }
-        case .landWater:
+        case .shotSniper:
             var lp = 0.0
             return buffer(format, seconds: 0.9) { _, t in
-                lp += (noise() - lp) * (0.3 - t * 0.25)
-                return Float(lp * exp(-t * 4) * 0.9)
+                lp += (noise() - lp) * 0.15
+                return Float((lp * exp(-t * 7) * 0.9 + sin(2 * .pi * 70 * t) * exp(-t * 6) * 0.8
+                              + sin(2 * .pi * 600 * t) * exp(-t * 60) * 0.3) * 0.9)
             }
-        case .landCloud:
+        case .reload:
+            return buffer(format, seconds: 0.35) { _, t in
+                Float((sin(2 * .pi * 1200 * t) * exp(-t * 60) + sin(2 * .pi * 700 * max(0, t - 0.2)) * exp(-max(0, t - 0.2) * 60) * (t > 0.2 ? 1 : 0)) * 0.25)
+            }
+        case .empty:
+            return buffer(format, seconds: 0.1) { _, t in Float(sin(2 * .pi * 500 * t) * exp(-t * 70) * 0.25) }
+        case .switchWeapon:
+            return buffer(format, seconds: 0.18) { _, t in Float(sin(2 * .pi * 420 * t) * exp(-t * 40) * 0.25) }
+        case .hit:
+            return buffer(format, seconds: 0.1) { _, t in Float(sin(2 * .pi * 1500 * t) * exp(-t * 55) * 0.3) }
+        case .headshot:
+            return buffer(format, seconds: 0.25) { _, t in
+                Float((sin(2 * .pi * 2200 * t) * exp(-t * 30) + sin(2 * .pi * 1100 * t) * exp(-t * 20) * 0.6) * 0.3)
+            }
+        case .hurt:
             var lp = 0.0
-            return buffer(format, seconds: 0.8) { _, t in
-                lp += (noise() - lp) * 0.04
-                return Float(lp * sin(t / 0.8 * .pi) * 1.4)
+            return buffer(format, seconds: 0.3) { _, t in
+                lp += (noise() - lp) * 0.12
+                return Float((lp * exp(-t * 14) + sin(2 * .pi * 110 * t) * exp(-t * 12) * 0.5) * 0.8)
             }
-        case .finish:
-            return buffer(format, seconds: 1.8) { _, t in
-                let notes = [(0.0, 784.0), (0.12, 1046.5), (0.24, 1318.5), (0.36, 1568.0), (0.6, 2093.0)]
-                var v = 0.0
-                for (start, f) in notes where t > start { v += bell(t - start, freq: f, decay: 2.5) }
-                return Float(v * 0.2)
+        case .eliminated:
+            return buffer(format, seconds: 0.9) { _, t in
+                let f = 330 * pow(0.45, t / 0.9)
+                return Float(sin(2 * .pi * f * t) * exp(-t * 2.4) * 0.3)
             }
-        case .tap:
-            return buffer(format, seconds: 0.12) { _, t in Float(sin(2 * .pi * 880 * t) * exp(-t * 40) * 0.25) }
-        case .gem:
-            // きらきら: 高い鐘を 3 つ, すばやく.
-            return buffer(format, seconds: 0.7) { _, t in
+        case .pickup:
+            return buffer(format, seconds: 0.4) { _, t in
                 var v = 0.0
-                for (k, f) in [2637.0, 3136.0, 3951.0].enumerated() where t > Double(k) * 0.045 {
-                    v += bell(t - Double(k) * 0.045, freq: f, decay: 9)
-                }
-                return Float(v * 0.18)
+                for (k, f) in [1046.5, 1568.0].enumerated() where t > Double(k) * 0.06 { v += bell(t - Double(k) * 0.06, freq: f, decay: 8) }
+                return Float(v * 0.25)
             }
-        case .checkpoint:
-            return buffer(format, seconds: 1.4) { _, t in
-                let notes = [(0.0, 1046.5), (0.1, 1568.0), (0.2, 2093.0)]
+        case .heal:
+            return buffer(format, seconds: 0.6) { _, t in
                 var v = 0.0
-                for (start, f) in notes where t > start { v += bell(t - start, freq: f, decay: 3.5) }
+                for (k, f) in [784.0, 988.0, 1318.5].enumerated() where t > Double(k) * 0.07 { v += bell(t - Double(k) * 0.07, freq: f, decay: 6) }
                 return Float(v * 0.22)
             }
-        case .warp:
-            // 吸いこまれるような音: 上がっていく音 + 風.
-            var lp = 0.0
-            return buffer(format, seconds: 2.2) { _, t in
-                lp += (noise() - lp) * (0.02 + t * 0.12)
-                let sweep = sin(2 * .pi * (180 * t + 260 * t * t)) * exp(-pow(t - 1.0, 2) * 1.5) * 0.18
-                return Float(lp * sin(min(t / 2.2, 1) * .pi) * 0.9 + sweep)
+        case .roundWin:
+            return buffer(format, seconds: 1.6) { _, t in
+                let notes = [(0.0, 784.0), (0.12, 1046.5), (0.24, 1318.5), (0.4, 1568.0)]
+                var v = 0.0
+                for (start, f) in notes where t > start { v += bell(t - start, freq: f, decay: 2.8) }
+                return Float(v * 0.22)
             }
-        case .fail:
-            return buffer(format, seconds: 0.9) { _, t in
-                let f = 440 * pow(0.5, t / 0.9)
-                return Float(sin(2 * .pi * f * t) * exp(-t * 2.5) * 0.25)
+        case .roundLose:
+            return buffer(format, seconds: 1.0) { _, t in
+                let f = 392 * pow(0.5, t / 1.0)
+                return Float(sin(2 * .pi * f * t) * exp(-t * 2.2) * 0.28)
             }
         case .countdown:
             return buffer(format, seconds: 0.25) { _, t in Float(sin(2 * .pi * 880 * t) * exp(-t * 14) * 0.3) }
         case .go:
             return buffer(format, seconds: 0.6) { _, t in Float(bell(t, freq: 1760, decay: 4) * 0.35) }
-        case .boss:
-            // ボスの登場: 低いどん, どん, と高い警告の音.
-            return buffer(format, seconds: 1.6) { _, t in
-                var v = 0.0
-                for start in [0.0, 0.35, 0.7] where t > start {
-                    let u = t - start
-                    v += sin(2 * .pi * 70 * u) * exp(-u * 7) * 0.6
-                }
-                v += sin(2 * .pi * (660 + 110 * sin(t * 18)) * t) * exp(-pow(t - 0.9, 2) * 6) * 0.12
-                return Float(v)
+        case .zoneWarning:
+            return buffer(format, seconds: 0.5) { _, t in
+                Float(sin(2 * .pi * 660 * t) * (sin(2 * .pi * 10 * t) > 0 ? 1 : 0.2) * exp(-t * 4) * 0.25)
             }
-        case .skid:
+        case .tap:
+            return buffer(format, seconds: 0.12) { _, t in Float(sin(2 * .pi * 880 * t) * exp(-t * 40) * 0.25) }
+        case .step:
             var lp = 0.0
-            return buffer(format, seconds: 0.35) { _, t in
-                lp += (noise() - lp) * 0.3
-                return Float(lp * exp(-t * 10) * 0.6)
+            return buffer(format, seconds: 0.08) { _, t in
+                lp += (noise() - lp) * 0.2
+                return Float(lp * exp(-t * 50) * 0.3)
             }
-        }
-    }
-
-    private static func windLoop(format: AVAudioFormat) -> AVAudioPCMBuffer? {
-        // 2 秒のノイズ. 端をなめらかにつないで, くり返しても「ぷつっ」と鳴らないようにする.
-        var rng = SystemRandomNumberGenerator()
-        var lp = 0.0
-        let seconds = 2.0
-        let n = Int(seconds * format.sampleRate)
-        var raw = [Double](repeating: 0, count: n)
-        for i in 0..<n {
-            lp += (Double.random(in: -1...1, using: &rng) - lp) * 0.2
-            raw[i] = lp
-        }
-        let fade = Int(0.1 * format.sampleRate)
-        return buffer(format, seconds: seconds) { i, _ in
-            var v = raw[i]
-            if i < fade {
-                let w = Double(i) / Double(fade)
-                v = raw[i] * w + raw[n - fade + i] * (1 - w)
-            }
-            return Float(v * 0.8)
         }
     }
 }

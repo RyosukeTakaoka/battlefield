@@ -81,7 +81,7 @@ struct HostLogic {
         let n = roster.count
         let mode = GameMode.make(kind: kind, playerCount: n)
         let map = world.map
-        var arena = Circle(x: 0, z: 0, r: mode.arenaRadius)
+        var arena = Disc(x: 0, z: 0, r: mode.arenaRadius)
         var spawns: [(position: Vec3, yaw: Float)] = []
 
         func faceCenter(_ p: Vec3, _ cx: Float, _ cz: Float) -> Float { atan2(cx - p.x, -(cz - p.z)) }
@@ -90,7 +90,7 @@ struct HostLogic {
         case .roundBattle, .killRace:
             if !map.pois.isEmpty {
                 let poi = map.pois[(kind == .roundBattle ? round : Int(matchId) + round) % map.pois.count]
-                arena = Circle(x: poi.center.x, z: poi.center.z, r: mode.arenaRadius)
+                arena = Disc(x: poi.center.x, z: poi.center.z, r: mode.arenaRadius)
             }
         case .battleRoyale:
             if !mode.islandWide { arena = chooseSmallArena(mode: mode, count: n) }
@@ -145,12 +145,12 @@ struct HostLogic {
         }
 
         // 円: 段階ごとの終わりの円(いまの円の中の, 陸の上).
-        var zones: [Circle] = []
+        var zones: [Disc] = []
         var prev = arena
         for st in mode.stages {
             let r = arena.r * st.endFraction
             let c = pickZoneCenter(inside: prev, radius: r, onLand: !mode.stages.isEmpty)
-            let end = Circle(x: c.0, z: c.1, r: r)
+            let end = Disc(x: c.0, z: c.1, r: r)
             zones.append(end)
             prev = end
         }
@@ -167,14 +167,14 @@ struct HostLogic {
     }
 
     /// バトルロイヤル(小)の始めの円: 島の中に おさまり, 置き場と出発点が足りる場所.
-    private mutating func chooseSmallArena(mode: GameMode, count: Int) -> Circle {
+    private mutating func chooseSmallArena(mode: GameMode, count: Int) -> Disc {
         let r = mode.arenaRadius
         let maxDist = max(0, 188 - r)
-        var best = Circle(x: 0, z: 0, r: r)
+        var best = Disc(x: 0, z: 0, r: r)
         for _ in 0..<60 {
             let a = rng.float(in: 0...(2 * .pi))
             let d = maxDist * rng.nextFloat().squareRoot()
-            let c = Circle(x: d * cos(a), z: d * sin(a), r: r)
+            let c = Disc(x: d * cos(a), z: d * sin(a), r: r)
             let lootCount = world.map.loot.filter { $0.count >= 3 && c.contains(x: $0[0], z: $0[2]) }.count
             guard lootCount >= mode.minLootInArena else { continue }
             if world.arenaSpawns(centerX: c.x, centerZ: c.z, radius: r, count: count, fraction: mode.spawnFraction) != nil {
@@ -185,7 +185,7 @@ struct HostLogic {
         return best
     }
 
-    private mutating func pickZoneCenter(inside prev: Circle, radius: Float, onLand: Bool) -> (Float, Float) {
+    private mutating func pickZoneCenter(inside prev: Disc, radius: Float, onLand: Bool) -> (Float, Float) {
         let room = max(prev.r - radius, 0) * 0.85
         for _ in 0..<30 {
             let a = rng.float(in: 0...(2 * .pi))

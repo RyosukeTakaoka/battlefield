@@ -1,7 +1,7 @@
 import Foundation
 
 /// 円(上から見た中心と半径). 戦う場所・安全地帯に使う.
-struct Circle: Equatable {
+struct Disc: Equatable {
     var x: Float
     var z: Float
     var r: Float
@@ -11,8 +11,8 @@ struct Circle: Equatable {
         return dx * dx + dz * dz <= r * r
     }
 
-    static func lerp(_ a: Circle, _ b: Circle, _ t: Float) -> Circle {
-        Circle(x: mix(a.x, b.x, t), z: mix(a.z, b.z, t), r: mix(a.r, b.r, t))
+    static func lerp(_ a: Disc, _ b: Disc, _ t: Float) -> Disc {
+        Disc(x: mix(a.x, b.x, t), z: mix(a.z, b.z, t), r: mix(a.r, b.r, t))
     }
 }
 

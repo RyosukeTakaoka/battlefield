@@ -137,7 +137,7 @@ enum MessageCodec {
             }
             let zn = r.u8()
             guard zn <= maxZones else { return nil }
-            var zones: [Circle] = []
+            var zones: [Disc] = []
             for _ in 0..<zn { zones.append(r.circle()) }
             let ln = r.u8()
             var loot: [LootSpawn] = []

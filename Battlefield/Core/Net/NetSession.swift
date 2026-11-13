@@ -222,7 +222,8 @@ struct NetSession {
             return [Outgoing(data: MessageCodec.encode(message), to: nil, reliable: false)]
         case .hitClaim(let c):
             return hostHandleLocal(message, sender: c.attacker, now: now)
-        case .shotFx:
+        case .shotFx(let m):
+            shots.append(m)                  // ホスト自身の画面にも ボットの弾の線を出す
             return [Outgoing(data: MessageCodec.encode(message), to: nil, reliable: false)]
         default:
             return []

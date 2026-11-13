@@ -126,19 +126,12 @@ struct BackButton: View {
     }
 }
 
-/// 背景: コースの絵 + 空色のグラデーション.
+/// 背景: 空色のグラデーション.
 struct SkyBackground: View {
-    var imageName: String = "Course_countryside"
-
     var body: some View {
         ZStack {
             LinearGradient(colors: [Color(red: 0.42, green: 0.68, blue: 0.97), Color(red: 0.86, green: 0.93, blue: 1.0)],
                            startPoint: .top, endPoint: .bottom)
-            // 絵は「画面の大きさの枠」の中に貼って, はみ出た所は切る.
-            // (scaledToFill の絵をそのまま置くと, 画面全体が絵の大きさに広がって, ボタンが画面の外へ出てしまう.)
-            Color.clear
-                .overlay(Image(imageName).resizable().scaledToFill().opacity(0.9))
-                .clipped()
             LinearGradient(colors: [.white.opacity(0.0), .white.opacity(0.35)], startPoint: .center, endPoint: .bottom)
         }
         .ignoresSafeArea()

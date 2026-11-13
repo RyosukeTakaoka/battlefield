@@ -38,8 +38,8 @@ final class ZoneAndModeTests: XCTestCase {
 
     func testZoneShrinksOnSchedule() {
         let mode = GameMode.make(kind: .battleRoyale, playerCount: 8)
-        let ends = mode.stages.map { Circle(x: 0, z: 0, r: 210 * $0.endFraction) }
-        let zone = Zone(initial: Circle(x: 0, z: 0, r: 210), ends: ends, stages: mode.stages, outsideDPS: 0)
+        let ends = mode.stages.map { Disc(x: 0, z: 0, r: 210 * $0.endFraction) }
+        let zone = Zone(initial: Disc(x: 0, z: 0, r: 210), ends: ends, stages: mode.stages, outsideDPS: 0)
         XCTAssertEqual(zone.circle(at: 0).r, 210)
         XCTAssertEqual(zone.circle(at: 44).r, 210)                              // 45 秒は待つ
         XCTAssertEqual(zone.circle(at: 60).r, (210 + 120) / 2, accuracy: 0.01)   // せばまる途中(15 / 30 秒)
@@ -62,7 +62,7 @@ final class ZoneAndModeTests: XCTestCase {
     }
 
     func testZoneWithNoStagesUsesTheConstantDamage() {
-        let z = Zone(initial: Circle(x: 0, z: 0, r: 80), ends: [], stages: [], outsideDPS: 5)
+        let z = Zone(initial: Disc(x: 0, z: 0, r: 80), ends: [], stages: [], outsideDPS: 5)
         XCTAssertEqual(z.circle(at: 1000).r, 80)
         XCTAssertEqual(z.dps(at: 50), 5)
     }

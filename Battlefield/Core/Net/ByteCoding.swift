@@ -34,7 +34,7 @@ struct ByteWriter {
     /// 1 = 0.1 m.
     mutating func distance(_ d: Float) { u16(Int((d * 10).rounded())) }
     /// 円: 中心(cm)と半径(10 cm).
-    mutating func circle(_ c: Circle) { i16(Int((c.x * 100).rounded())); i16(Int((c.z * 100).rounded())); u16(Int((c.r * 10).rounded())) }
+    mutating func circle(_ c: Disc) { i16(Int((c.x * 100).rounded())); i16(Int((c.z * 100).rounded())); u16(Int((c.r * 10).rounded())) }
     /// 名前: 長さ 1 バイト + UTF-8(24 バイトまで. 文字の途中で切らない).
     mutating func name(_ s: String) {
         var bytes = Array(s.utf8)
@@ -87,7 +87,7 @@ struct ByteReader {
     mutating func velocity() -> Vec3 { Vec3(Float(i8()) / 4, Float(i8()) / 4, Float(i8()) / 4) }
     mutating func time() -> Double { Double(u32()) / 1000 }
     mutating func distance() -> Float { Float(u16()) / 10 }
-    mutating func circle() -> Circle { Circle(x: Float(i16()) / 100, z: Float(i16()) / 100, r: Float(u16()) / 10) }
+    mutating func circle() -> Disc { Disc(x: Float(i16()) / 100, z: Float(i16()) / 100, r: Float(u16()) / 10) }
     mutating func name() -> String {
         let n = u8()
         guard let b = take(n) else { return "" }

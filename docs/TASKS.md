@@ -1,5 +1,7 @@
 # 作業の順番
 
+**凡例**: ☑ = 完了 / ◐ = コードは書いた(Core は Linux でテスト済み)が, **Apple の部品の層は まだ一度もビルドしていない** ので, Mac のビルドと実機の確認が残っている / ☐ = まだ.
+
 上から順に, **1 回のセッションで 1 つ** 進める. 始める前に `docs/DESIGN.md` を読み, そのマイルストーンに書いてある節を読み直すこと.
 終わったら, チェックを付けて「次の人へ」を書く.
 
@@ -11,14 +13,44 @@
 | ☑ | M0 土台 | フォルダとプロジェクトがあり, `swift test` が通る | |
 | ☑ | M1 世界と動き(Core) | 当たり判定と, 人の動きの計算 | |
 | ☑ | M2 島のデータ | 島の高さ・地面の絵・小物の置き場 | |
-| ☐ | M3 描画と操作 | **1 人で島を歩き回れる** | ★ 1 回目 |
+| ◐ | M3 描画と操作 | **1 人で島を歩き回れる** | ★ 1 回目 |
 | ☑ | M4 戦いとルール(Core) | 武器・当たり・ダメージ・ラウンド戦のルール | |
 | ☑ | M5 通信(Core) | メッセージ・ホスト・時計・補間(にせの通信でテスト) | |
-| ☐ | M6 ボットと「れんしゅう」 | **1 台で, ボットとラウンド戦を最後まで遊べる** | ★ 2 回目 |
-| ☐ | M7 Game Center | **2 台で対戦できる** | ★ 3 回目(2 台) |
-| ☐ | M8 切れたときの強さ | ホストがぬけても続く. とちゅうでやめても こわれない | ★ 4 回目 |
-| ☐ | M9 ルールを増やす | キル勝負, バトルロイヤル | ★ |
+| ◐ | M6 ボットと「れんしゅう」 | **1 台で, ボットとラウンド戦を最後まで遊べる** | ★ 2 回目 |
+| ◐ | M7 Game Center | **2 台で対戦できる** | ★ 3 回目(2 台) |
+| ◐ | M8 切れたときの強さ | ホストがぬけても続く. とちゅうでやめても こわれない | ★ 4 回目 |
+| ◐ | M9 ルールを増やす | キル勝負, バトルロイヤル | ★ |
 | ☐ | M10 みがき | 新しい小物・キャラクター, コントローラー, ランキング など | ★ |
+
+---
+
+## Apple の層(M3・M6・M7 のコード. **まだビルドしていない**)
+
+Core のあとに, Apple の部品を使う層を まとめて書いた. 文法は `swiftc -parse` で確かめたが, 型の検査(コンパイル)は Mac の Xcode でしかできない.
+**次にやること: ユーザーが Mac でビルド(`docs/SETUP.md` §1)→ 出たエラーを AI に貼る → 直す → 実機で確かめる.**
+
+| ファイル | 役目 |
+|---|---|
+| `App/{BattlefieldApp,AppModel,GameSettings}.swift` | 画面の行き来. 設定(UserDefaults). 「れんしゅう」「オンライン対戦」の始め方 |
+| `Game/BattleController.swift` | **1 試合の司会役**. 毎コマ: 入力 → `CharacterMotor` → 撃つ(`Hitscan`・`hitClaim`) → `NetSession.tick` → ホストならボット → 出来事(音・演出・ロビー・結果) → 相手の補間 → カメラ → 描画. ロビー・結果・切断の画面の状態もここ |
+| `Rendering/{SceneDirector,ArenaScene,CharacterRig,CombatEffects}.swift` | 描画. 島(4 × 4 区画 + 小物のまとめ + 海 + 空)・ひろうもの(光る箱 + 光の柱)・安全地帯(内向きの半透明の筒)・箱の人形・弾の線と火花 |
+| `Services/GameCenter/{GameCenterAuth,Matchmaking,GameKitTransport,UIKitHelpers}.swift` | ログイン・人あつめの画面・招待・`GKMatch` を `MatchTransport` として包む(ルールは書かない) |
+| `Services/Audio/SoundEngine.swift` | 効果音(式で波形を作る. 武器 4 種・当たり・ひろう・勝ち負け …) |
+| `Features/{Root,Title,Lobby,Game,Result,Settings}/*` | タイトル・れんしゅうの設定・ロビー・ゲーム画面(HUD・ミニマップ・タッチ・ボタン)・結果・設定 |
+
+つなぎ方の大事な約束(`BattleController`):
+- 自分の姿は `NetSession.tick(now:local:)` に毎コマ渡す(試合中で生きているときだけ). 撃ったら `shotFx`(全員へ)+ `hitClaim`(ホストへ)を `NetSession.send` で.
+- 出来事は `session.drainEvents()` を **1 か所で受けて**, 画面・音・`BotRunner.observe` へ配る(2 か所で drain しない).
+- 自分の `Loadout` は `.roundStarting`(組で作る)・`.lootTaken`(自分の slot なら `pickUp`)・`.respawned`(`reset`)で変える.
+- `now` は `ProcessInfo.processInfo.systemUptime`(0 以上の単調な値). ホストの時計は `session.hostNow(local:)`.
+- `GameKitTransport` のコールバックは `DispatchQueue.main.async` でメインへ渡してから Core にさわる.
+- 「れんしゅう」= `LoopbackTransport` + `begin(peers: [])` + `startMatch(kind:bots:)`. オンラインと同じ道.
+
+実機で確かめること(★ M3 → M6 → M7 → M8 の順. 一度に全部ではなく, 動くところまでを 1 つずつ):
+1. 「れんしゅう」→ ラウンド戦・ボット 1 体: 島が見える・歩ける・ジャンプできる・撃てる・ボットが撃ってくる・ラウンドの勝ち負けが出る
+2. キル勝負・バトルロイヤル(ボット 3〜7 体)
+3. 2 台でオンライン(SETUP §2・§3): 同じ人がホスト・撃つと相手の HP が減る・ラウンドと点が同じ・「もう一度」
+4. 3〜4 台(または 2 台 + ボット)でホストのアプリを消す → 残りで続く
 
 ---
 

@@ -265,7 +265,7 @@ struct BotRunner {
     }
 
     /// 敵・ひろうもの・行き先をえらぶ.
-    private mutating func decide(_ b: inout Bot, match: MatchState, positions: [Int: Vec3], circle: Circle, outside: Bool, now: Double) {
+    private mutating func decide(_ b: inout Bot, match: MatchState, positions: [Int: Vec3], circle: Disc, outside: Bool, now: Double) {
         let eye = b.player.eye
         // 見える敵のうち いちばん近い(線がさえぎられていない).
         var best: (slot: Int, dist: Float)?
@@ -368,7 +368,7 @@ struct BotRunner {
     }
 }
 
-private extension Circle {
+private extension Disc {
     /// 円の中心(高さは 地面).
     func center3(_ world: ArenaWorld) -> Vec3 { Vec3(x, world.terrainHeight(x: x, z: z), z) }
 }
