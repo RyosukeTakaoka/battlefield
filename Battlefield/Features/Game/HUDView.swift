@@ -77,7 +77,7 @@ struct HUDView: View {
                 if let prompt = hud.pickupPrompt {
                     Text(prompt).font(Theme.font(16)).foregroundStyle(.white)
                         .padding(.horizontal, 12).padding(.vertical, 5).background(Capsule().fill(Theme.leaf))
-                        .padding(.bottom, 70)
+                        .padding(.bottom, 200)
                 }
                 WeaponBar(hud: hud)
             }

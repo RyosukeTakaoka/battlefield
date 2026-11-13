@@ -115,8 +115,10 @@ final class TouchLayoutTests: XCTestCase {
         XCTAssertEqual(t.move.x * t.move.x + t.move.y * t.move.y, 1, accuracy: 1e-4)
         XCTAssertGreaterThan(t.move.x, 0)
         XCTAssertGreaterThan(t.move.y, 0)
-        t.touchMoved(id: 1, x: 130, y: 200)               // 右へ 30 pt = 半分
-        XCTAssertEqual(t.move.x, 0.5, accuracy: 1e-4)
+        t.touchEnded(id: 1)
+        t.touchBegan(id: 2, x: 100, y: 200)               // 新しい指で
+        t.touchMoved(id: 2, x: 130, y: 200)               // 右へ 30 pt = 半分(まん中の遊び 0.12 をのぞいて 0.43)
+        XCTAssertEqual(t.move.x, (0.5 - 0.12) / 0.88, accuracy: 1e-4)
     }
 
     func testLookAccumulatesBetweenReads() {
@@ -141,9 +143,9 @@ final class TouchLayoutTests: XCTestCase {
         t.touchMoved(id: 1, x: fire.center.x + 30, y: fire.center.y)
         XCTAssertEqual(t.takeLook().yaw, 30 * 0.006, accuracy: 1e-5)
         XCTAssertTrue(t.isHeld(.fire))
-        // 別の指でジャンプ: 押した瞬間だけ.
+        // 別の指でジャンプ: 押した瞬間だけ(撃つボタンを押した瞬間も 残っている).
         t.touchBegan(id: 2, x: jump.center.x, y: jump.center.y)
-        XCTAssertEqual(t.takePressed(), [.jump])
+        XCTAssertEqual(t.takePressed(), [.fire, .jump])
         XCTAssertEqual(t.takePressed(), [])
         t.touchEnded(id: 1)
         XCTAssertFalse(t.isHeld(.fire))
@@ -208,6 +210,125 @@ final class TouchLayoutTests: XCTestCase {
                 for j in (i + 1)..<bs.count {
                     let dx = bs[i].center.x - bs[j].center.x, dy = bs[i].center.y - bs[j].center.y
                     XCTAssertGreaterThan((dx * dx + dy * dy).squareRoot(), bs[i].radius + bs[j].radius - 1, "\(bs[i].button)/\(bs[j].button) \(w)x\(h)")
+                }
+            }
+        }
+    }
+
+    // MARK: 操作感の不具合(2026-11-13)が もう起きないこと
+
+    /// ノッチ・ホームバーのある iPhone(横向き): ボタンは 安全な範囲の内側. 押せる場所 = 見える場所.
+    func iPhoneLayout() -> TouchLayout {
+        var t = TouchLayout(width: 844, height: 390)
+        t.insets = .init(left: 47, right: 47, top: 0, bottom: 21)
+        return t
+    }
+
+    func testButtonsStayInsideTheSafeArea() {
+        let t = iPhoneLayout()
+        for b in t.buttons {
+            XCTAssertGreaterThanOrEqual(b.center.x - b.radius, 47, "\(b.button)")
+            XCTAssertLessThanOrEqual(b.center.x + b.radius, 844 - 47, "\(b.button)")
+            XCTAssertLessThanOrEqual(b.center.y + b.radius, 390 - 21, "\(b.button)")
+            XCTAssertGreaterThanOrEqual(b.center.y - b.radius, 0, "\(b.button)")
+        }
+        // 安全な範囲の分だけ 内側へずれている(以前は 絵だけがずれて, 押せる場所と食いちがっていた).
+        let plain = TouchLayout(width: 844, height: 390)
+        let fireA = plain.buttons.first { $0.button == .fire }!, fireB = t.buttons.first { $0.button == .fire }!
+        XCTAssertEqual(fireA.center.x - fireB.center.x, 47, accuracy: 1e-4)
+        XCTAssertEqual(fireA.center.y - fireB.center.y, 21, accuracy: 1e-4)
+    }
+
+    func testMovingWhileShooting() throws {
+        var t = iPhoneLayout()
+        let fire = try XCTUnwrap(t.buttons.first { $0.button == .fire })
+        t.touchBegan(id: 1, x: 200, y: 250)               // 左の親指: 移動
+        t.touchMoved(id: 1, x: 200, y: 190)
+        t.touchBegan(id: 2, x: fire.center.x, y: fire.center.y)     // 右の親指: 撃つ
+        XCTAssertGreaterThan(t.move.y, 0.9)
+        XCTAssertTrue(t.isHeld(.fire))
+        t.touchMoved(id: 1, x: 260, y: 190)               // 動きながら 向きを変えても
+        XCTAssertTrue(t.isHeld(.fire))
+        XCTAssertGreaterThan(t.move.x, 0.5)
+        // 撃つ指をはなしても, 移動は続く.
+        t.touchEnded(id: 2)
+        XCTAssertFalse(t.isHeld(.fire))
+        XCTAssertGreaterThan(t.move.x, 0.5)
+    }
+
+    func testQuickTapsAreNotLost() throws {
+        var t = iPhoneLayout()
+        let jump = try XCTUnwrap(t.buttons.first { $0.button == .jump })
+        let fire = try XCTUnwrap(t.buttons.first { $0.button == .fire })
+        // 1 コマのあいだに 押して はなす(ほかの指は 置いていない).
+        t.touchBegan(id: 1, x: jump.center.x, y: jump.center.y)
+        t.touchEnded(id: 1)
+        t.touchBegan(id: 2, x: fire.center.x, y: fire.center.y)
+        t.touchEnded(id: 2)
+        XCTAssertEqual(t.takePressed(), [.jump, .fire], "the game still sees both taps")
+        // 電話などで 全部はなしたことにしても, 押した記録は消えない.
+        t.touchBegan(id: 3, x: jump.center.x, y: jump.center.y)
+        t.cancelAll()
+        XCTAssertEqual(t.takePressed(), [.jump])
+    }
+
+    func testHitAreaIsALittleBiggerThanTheButton() throws {
+        let t = iPhoneLayout()
+        let jump = try XCTUnwrap(t.buttons.first { $0.button == .jump })
+        // 見た目のふちの少し外(半径の 1.2 倍)でも 押せる.
+        XCTAssertEqual(t.button(at: .init(x: jump.center.x - jump.radius * 1.2, y: jump.center.y)), .jump)
+        XCTAssertNil(t.button(at: .init(x: jump.center.x - jump.radius * 1.6, y: jump.center.y)))
+        // 2 つの押せる範囲が重なる所では, 近い方.
+        for a in t.activeButtons {
+            for b in t.activeButtons where a.button != b.button {
+                let mid = TouchLayout.Point(x: a.center.x + (b.center.x - a.center.x) * 0.3, y: a.center.y + (b.center.y - a.center.y) * 0.3)
+                // 近い a の側(3 割の所)が, 遠い b になることはない(あいだに別のボタンがあれば, それでもよい).
+                if let hit = t.button(at: mid) { XCTAssertNotEqual(hit, b.button, "\(a.button) / \(b.button)") }
+            }
+        }
+    }
+
+    func testInteractOnlyWhenShown() throws {
+        var t = iPhoneLayout()
+        let interact = try XCTUnwrap(t.buttons.first { $0.button == .interact })
+        XCTAssertNil(t.button(at: interact.center), "hidden: the spot is for looking")
+        t.showsInteract = true
+        XCTAssertEqual(t.button(at: interact.center), .interact)
+    }
+
+    func testFloatingStickAndDeadZone() {
+        var t = iPhoneLayout()
+        t.touchBegan(id: 1, x: 200, y: 250)
+        t.touchMoved(id: 1, x: 204, y: 250)               // 4 pt: 遊びの中 → 0
+        XCTAssertEqual(t.move, .init(x: 0, y: 0))
+        t.touchMoved(id: 1, x: 200, y: 100)               // ずっと上(150 pt): まん中が ついてくる
+        XCTAssertEqual(t.move.y, 1, accuracy: 1e-4)
+        let vis = t.stickVisual!
+        XCTAssertEqual(vis.origin.y, 160, accuracy: 1e-3)                 // 100 + 半径 60
+        XCTAssertEqual(vis.knob.y, 100, accuracy: 1e-3)
+        t.touchMoved(id: 1, x: 260, y: 160)               // 指を戻さずに 右へ: すぐ右を向く
+        XCTAssertGreaterThan(t.move.x, 0.95)
+        XCTAssertEqual(t.move.y, 0, accuracy: 0.05)
+        t.touchEnded(id: 1)
+        XCTAssertNil(t.stickVisual)
+    }
+
+    func testLayoutFitsCommonScreensWithInsets() {
+        for (w, h, side, bottom) in [(Float(844), Float(390), Float(47), Float(21)), (932, 430, 59, 21), (667, 375, 0, 0),
+                                      (1194, 834, 0, 20), (1366, 1024, 0, 20)] {
+            var t = TouchLayout(width: w, height: h)
+            t.insets = .init(left: side, right: side, top: 0, bottom: bottom)
+            t.showsInteract = true
+            let bs = t.activeButtons
+            for b in bs {
+                XCTAssertGreaterThanOrEqual(b.center.x - b.radius, side - 1e-3, "\(b.button) \(w)x\(h)")
+                XCTAssertLessThanOrEqual(b.center.x + b.radius, w - side + 1e-3, "\(b.button) \(w)x\(h)")
+                XCTAssertGreaterThanOrEqual(b.center.y - b.radius, 0, "\(b.button) \(w)x\(h)")
+            }
+            for i in 0..<bs.count {
+                for j in (i + 1)..<bs.count {
+                    let dx = bs[i].center.x - bs[j].center.x, dy = bs[i].center.y - bs[j].center.y
+                    XCTAssertGreaterThan((dx * dx + dy * dy).squareRoot(), bs[i].radius + bs[j].radius, "\(bs[i].button)/\(bs[j].button) \(w)x\(h)")
                 }
             }
         }

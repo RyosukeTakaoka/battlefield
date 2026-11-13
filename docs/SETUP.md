@@ -52,7 +52,7 @@ python3 Tools/map/build_arena.py
 ## 最初のビルドで確かめること(AI が書き足していく表)
 
 Linux で書いたため, Apple の部品を使うファイルは **まだ一度もコンパイルしていません**(文法だけは `swiftc -parse` で確かめた).
-Core(`Battlefield/Core/`)は Linux で 157 件のテストが通っています. 下の表のとおり, 使っている API の一覧です.
+Core(`Battlefield/Core/`)は Linux で 165 件のテストが通っています. 下の表のとおり, 使っている API の一覧です.
 エラーが出たら, 赤い文字を そのまま AI に貼ってください.
 
 | 場所 | 使っている API | 根拠 |
@@ -63,7 +63,8 @@ Core(`Battlefield/Core/`)は Linux で 157 件のテストが通っています.
 | `Rendering/CharacterRig.swift` | `ModelEntity()`, `ModelComponent(mesh:materials:)`, `MeshResource.generateBox(size:cornerRadius:)`, `generateSphere(radius:)`, `simd_quatf` | 新しく書いた(RealityKit の基本の API) |
 | `Rendering/CombatEffects.swift` | `Entity.look(at:from:relativeTo:)`, `isEnabled`, `scale` | 新しく書いた |
 | `Game/BattleController.swift` | `@Observable`, `@ObservationIgnored`, `ProcessInfo.systemUptime` | iOS 17 の Observation |
-| `Features/Game/TouchControlsView.swift` | `UIViewRepresentable`, `touchesBegan / Moved / Ended / Cancelled`, `isMultipleTouchEnabled`, `TimelineView(.periodic)` | 新しく書いた |
+| `Features/Game/TouchControlsView.swift` | `UIViewRepresentable`, `touchesBegan / Moved / Ended / Cancelled`, `isMultipleTouchEnabled`, `UIView.safeAreaInsets`, `safeAreaInsetsDidChange()`, `TimelineView(.periodic)` | 新しく書いた |
+| `Features/Game/GameScreen.swift` | `.defersSystemGestures(on:)`(画面のはしのタッチを iOS より先にゲームへ) | iOS 16 から |
 | `Features/Game/HUDView.swift`, `MinimapView.swift` | `Canvas`, `Path`, `.blendMode(.destinationOut)` + `compositingGroup()`, `Image(uiImage:)` | 新しく書いた |
 | `Features/*` | `@Environment(AppModel.self)`, `@Bindable`, `confirmationDialog`, `Picker(.segmented)` | iOS 17 |
 | `Services/Audio/SoundEngine.swift` | `AVAudioEngine`, `AVAudioPlayerNode`, `AVAudioPCMBuffer` | Airplane の方式 |

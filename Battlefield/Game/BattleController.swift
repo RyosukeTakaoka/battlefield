@@ -161,6 +161,8 @@ final class BattleController {
     @ObservationIgnored private var spectateTap = false
     @ObservationIgnored private var kickPitch: Float = 0
     @ObservationIgnored private var pendingPrompt: String?
+    /// ジャンプを押した. 次に物理を進めるときまで覚えておく(120 Hz の画面では 物理を進めないコマがあるため).
+    @ObservationIgnored private var pendingJump = false
 
     init(mode: Mode, settings: GameSettings, playerName: String, transport: MatchTransport? = nil) {
         self.mode = mode
@@ -346,6 +348,7 @@ final class BattleController {
         // 自分: 入力 → 動き → 撃つ → ひろう.
         let look = touch.takeLook()
         let pressed = touch.takePressed()
+        if pressed.contains(.jump) { pendingJump = true }
         let aiming = touch.isHeld(.aim)
         let sens: Float = aiming ? 0.55 : 1
         player.yaw += look.yaw * sens
@@ -356,7 +359,6 @@ final class BattleController {
         if canAct || frozen {
             accumulator += dt
             var steps = 0
-            var first = true
             while accumulator >= GameRules.tick && steps < 6 {
                 accumulator -= GameRules.tick
                 steps += 1
@@ -367,14 +369,16 @@ final class BattleController {
                     input.yaw = player.yaw
                     input.pitch = player.pitch
                     input.aiming = aiming
-                    input.jump = first && pressed.contains(.jump)
+                    input.jump = pendingJump
+                    pendingJump = false
                     CharacterMotor.step(&player, input: input, world: world, dt: GameRules.tick)
-                    first = false
                 }
             }
+            if !canAct { pendingJump = false }
             if player.position.y < GameRules.killY { player.position.y = world.terrainHeight(x: player.position.x, z: player.position.z) + 1 }
         } else {
             accumulator = 0
+            pendingJump = false
         }
 
         if canAct {
@@ -388,7 +392,8 @@ final class BattleController {
                 loadout.switchSlot(now: local)
                 if loadout.current != before { sound.play(.switchWeapon) }
             }
-            let held = touch.isHeld(.fire)
+            // 押しているあいだ + 1 コマより短いタップ(押した瞬間の記録)でも 撃つ.
+            let held = touch.isHeld(.fire) || pressed.contains(.fire)
             if loadout.pullTrigger(held: held, now: local) {
                 fire(session: &s, world: world, now: local, mySlot: mySlot)
             } else if held, loadout.currentAmmo == 0, local - lastEmptyClick > 0.4 {
@@ -399,6 +404,7 @@ final class BattleController {
         } else {
             pendingPrompt = nil
         }
+        touch.showsInteract = pendingPrompt != nil
 
         // ホストなら, ボットを動かす.
         if s.isHost, var b = bots, match.phase != .lobby {

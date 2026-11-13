@@ -15,8 +15,7 @@ struct GameScreen: View {
             if controller.loadState == .ready {
                 if inMatch {
                     TouchControlsView(controller: controller).ignoresSafeArea()
-                    ControlButtonsOverlay(controller: controller, leftHanded: model.settings.leftHanded,
-                                          showInteract: controller.hud.pickupPrompt != nil)
+                    ControlButtonsOverlay(controller: controller).ignoresSafeArea()
                     HUDView(controller: controller)
                     leaveButton
                 }
@@ -36,6 +35,8 @@ struct GameScreen: View {
             loadingLayer
         }
         .task { await controller.load() }
+        // 画面のはしでも, iOS の操作(ホームに戻る など)より先に ゲームへ指を渡す.
+        .defersSystemGestures(on: .all)
         .confirmationDialog("試合をやめますか?", isPresented: $confirmLeave, titleVisibility: .visible) {
             Button("やめる", role: .destructive) { controller.leave() }
             Button("つづける", role: .cancel) {}

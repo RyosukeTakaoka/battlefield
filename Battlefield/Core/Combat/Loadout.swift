@@ -12,7 +12,7 @@ struct Loadout: Equatable {
     private(set) var selected = 0
     private(set) var nextFireTime: Double = 0
     private(set) var reloadEndsAt: Double?
-    /// 前のコマで撃つボタンを押していたか(1 回押すと 1 発の武器のため).
+    /// 前のコマで撃つボタンを押していたか.
     private var wasTriggerHeld = false
     var isAiming = false
 
@@ -46,10 +46,11 @@ struct Loadout: Equatable {
     }
 
     /// 撃つボタンの状態を渡す. 撃てたら true(弾を 1 発使う). 弾が空になったら自動でリロードを始める.
+    /// タッチ画面では 押しっぱなしの方が 動きながら撃ちやすいので, どの武器も 押しているあいだ
+    /// その武器の速さ(`fireRate`)で撃ち続ける(`automatic` は 将来 コントローラーで使うために残してある).
     mutating func pullTrigger(held: Bool, now: Double) -> Bool {
         defer { wasTriggerHeld = held }
         guard held, let spec = currentSpec else { return false }
-        if !spec.automatic && wasTriggerHeld { return false }
         if ammo[selected] == 0 {
             startReload(now: now)         // 空のまま押したら, リロードを始める
             return false

@@ -36,20 +36,22 @@ final class CombatTests: XCTestCase {
 
     // MARK: 弾倉・リロード・切りかえ
 
-    func testSemiAutoNeedsAFreshPressButAutoHolds() {
-        var hand = Loadout.starter
-        XCTAssertTrue(hand.pullTrigger(held: true, now: 1.0))
-        XCTAssertFalse(hand.pullTrigger(held: true, now: 2.0), "holding does not fire a handgun again")
-        XCTAssertFalse(hand.pullTrigger(held: false, now: 2.1))
-        XCTAssertTrue(hand.pullTrigger(held: true, now: 2.2))
-        var rifle = Loadout(weapons: [.assaultRifle, nil])
-        var shots = 0
-        var t = 0.0
-        while t < 1.0 {
-            if rifle.pullTrigger(held: true, now: t) { shots += 1 }
-            t += 1.0 / 60
+    func testHoldingFireKeepsShootingAtTheWeaponsRate() {
+        // タッチ画面向け: どの武器も 押しっぱなしで撃ち続ける(速さは武器ごと).
+        for (kind, perSecond) in [(WeaponKind.handgun, 4), (.assaultRifle, 9)] {
+            var l = Loadout(weapons: [kind, nil])
+            var shots = 0
+            var t = 0.0
+            while t < 1.0 {
+                if l.pullTrigger(held: true, now: t) { shots += 1 }
+                t += 1.0 / 60
+            }
+            XCTAssertEqual(shots, perSecond, accuracy: 1, "\(kind)")
         }
-        XCTAssertEqual(shots, 9, accuracy: 1)                         // 1 秒に 9 発
+        var sniper = Loadout(weapons: [.sniper, nil])
+        XCTAssertTrue(sniper.pullTrigger(held: true, now: 0))
+        XCTAssertFalse(sniper.pullTrigger(held: true, now: 1.0), "sniper: 0.8 shots per second")
+        XCTAssertTrue(sniper.pullTrigger(held: true, now: 1.3))
     }
 
     func testFireRateIsEnforced() {
