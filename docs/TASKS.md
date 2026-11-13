@@ -8,7 +8,7 @@
 
 | | マイルストーン | できること | 実機での確認 |
 |---|---|---|---|
-| ☐ | M0 土台 | フォルダとプロジェクトがあり, `swift test` が通る | |
+| ☑ | M0 土台 | フォルダとプロジェクトがあり, `swift test` が通る | |
 | ☐ | M1 世界と動き(Core) | 当たり判定と, 人の動きの計算 | |
 | ☐ | M2 島のデータ | 島の高さ・地面の絵・小物の置き場 | |
 | ☐ | M3 描画と操作 | **1 人で島を歩き回れる** | ★ 1 回目 |
@@ -45,7 +45,22 @@
 **終わりの条件**: `swift test` が通る(写した `Heightfield`・`Vector` のテストを 3 つ以上書く).
 Airplane から写したファイルの一覧が「次の人へ」に書いてある.
 
-**次の人へ**:
+**次の人へ**(M0 完了):
+
+- Swift 6.4.2 を `/opt/swift/swift-6.4.2-RELEASE-ubuntu24.04/usr/bin` に入れた(新しいセッションでは無いかもしれない.
+  `swift --version` で確かめ, 無ければ `https://download.swift.org/swift-6.4.2-release/ubuntu2404/swift-6.4.2-RELEASE/swift-6.4.2-RELEASE-ubuntu24.04.tar.gz` を `/opt/swift` に展開する).
+- Airplane から写したもの:
+  - Core: `Math/Vector.swift`, `Math/Noise.swift`, `World/Heightfield.swift` はそのまま. `World/TerrainMesher.swift` は **四角い区画用に書き直した**
+    (`chunk(hf, xMin:xMax:zMin:zMax:, image:, splitRock:, uv:)`. `image` = 地面の絵 1 枚が覆う範囲. 川・遠景は消した).
+    `PropInstance` は `World/PropInstance.swift` へ.
+  - Rendering: `AssetLibrary.swift`, `PostProcess/{Fog.metal,PostProcessor.swift}` はそのまま. `Materials.swift` は地面・崖・水・小物・空・重ねる板だけ残し,
+    `glow`(色だけの光る面)と `character`(人形の部品)を足した.
+  - Features/Services: `Theme.swift`, `GameView.swift`(まだ `FlightController` を参照している → **M3 で書き直す**), `SoundEngine.swift`(Airplane の音のまま → M6 で作りかえる)
+  - Resources: 小物 USDZ 14 個(木・岩・家・山小屋・丸太・石のアーチ・草)と `SkyDome.usdz`, 色見本 `PropAtlas.png`, 空 `Sky_island.png`(Airplane の谷の空のコピー), `Rock_valley.jpg`, `Water_Normal.png`, `FX_*.png`.
+    AppIcon は Airplane のものを仮に使っている.
+- **Xcode ではまだビルドしていない.** `GameView.swift` と `SoundEngine.swift` は Airplane の他のファイルに頼っている可能性があるので,
+  M3 までのあいだにビルドするときは, この 2 つをいったんターゲットから外すか直す.
+- `swift test` は 9 件通る(`FoundationTests`).
 
 ---
 

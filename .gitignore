@@ -1,0 +1,20 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+
+# SwiftPM(Core のテスト)
+.build/
+.swiftpm/
+
+# Blender の作業ファイル(スクリプトで何度でも作り直せる)
+Tools/blender/build/
+__pycache__/
+.venv/
+
+.DS_Store
+
+# ソアリンの映像(大きいので Git に入れない. docs/SOARIN.md の手順でこのフォルダに置く)
+PaperPlane/Resources/Video/*.mp4
+PaperPlane/Resources/Video/*.mov
