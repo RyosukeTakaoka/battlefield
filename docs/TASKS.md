@@ -12,8 +12,8 @@
 | ☑ | M1 世界と動き(Core) | 当たり判定と, 人の動きの計算 | |
 | ☑ | M2 島のデータ | 島の高さ・地面の絵・小物の置き場 | |
 | ☐ | M3 描画と操作 | **1 人で島を歩き回れる** | ★ 1 回目 |
-| ☐ | M4 戦いとルール(Core) | 武器・当たり・ダメージ・ラウンド戦のルール | |
-| ☐ | M5 通信(Core) | メッセージ・ホスト・時計・補間(にせの通信でテスト) | |
+| ☑ | M4 戦いとルール(Core) | 武器・当たり・ダメージ・ラウンド戦のルール | |
+| ☑ | M5 通信(Core) | メッセージ・ホスト・時計・補間(にせの通信でテスト) | |
 | ☐ | M6 ボットと「れんしゅう」 | **1 台で, ボットとラウンド戦を最後まで遊べる** | ★ 2 回目 |
 | ☐ | M7 Game Center | **2 台で対戦できる** | ★ 3 回目(2 台) |
 | ☐ | M8 切れたときの強さ | ホストがぬけても続く. とちゅうでやめても こわれない | ★ 4 回目 |
@@ -175,7 +175,20 @@ Airplane から写したファイルの一覧が「次の人へ」に書いて�
 - ラウンド戦を, 入力を台本で与えて最後まで: 3 点先取で `final`. 武器の組が全員同じ・続けて同じにならない.
   同時にやられたら点が入らない. ひろうものは早い者勝ち. 円が表のとおりにせばまる
 
-**次の人へ**:
+**次の人へ**(M4 完了. `swift test` 95 件):
+
+- ファイル: `Combat/{WeaponSpec,Loadout,Hitscan}.swift`, `Match/{GameMode,Zone,Loot,Message,MatchEvent,MatchState,HostLogic}.swift`.
+- **3 つのルールを全部実装した**(順番を前倒し. M9 の「ルールを増やす」は, 画面からえらべるようにする作業だけが残る).
+  数字はすべて `GameMode.make(kind:playerCount:)` と `WeaponSpec.all` にある(設計書の表と同じ).
+- **道は 1 本**: `HostLogic` は試合の状態を持たず, 渡された `MatchState` を読んでメッセージを返す. 返ったメッセージを
+  自分の `MatchState.apply` に当てて全員へ送る(`MatchHarness`(テスト)と `NetSession.broadcast` がそうしている).
+- 申し出の確かめ(`processClaim`): 試合中・どちらも生きている・無敵でない・武器がホストの見た武器と同じ・連射の間隔 × 0.7 以上・
+  距離が届く範囲 × 1.1 以内・ホストの知っている距離と 5 m 以内・同じ `shotId` を 2 度通さない・送り主 = 撃った人.
+- 円のダメージ(1 秒ごと)は **全員に当ててから** 勝ち負けを決める(同時にやられたら, だれにも点は入らない).
+- 当たり判定の体: カプセル(半径 0.35, 足もと +0.35〜+1.05)+ 頭の球(半径 0.25, +1.62). DESIGN の数字を直した.
+- ラウンド戦の場所は `pois[round % 4]`(村 → 製材所 → 岩場 → 森の広場). キル勝負は `pois[(matchId + round) % 4]`.
+- クライアント側でやること(M6 の画面): 自分の `Loadout` は `loadoutSet` で作る(`GameMode.weapons(forSet:)`), 武器ひろいは `.lootTaken` の自分の slot
+  を見て `Loadout.pickUp`, キル勝負で `.respawned` の自分の slot のとき `Loadout.reset`. 撃った結果は `Hitscan.fire` → `hitClaim`.
 
 ---
 
@@ -189,7 +202,22 @@ Airplane から写したファイルの一覧が「次の人へ」に書いて�
 
 **終わりの条件**: NETCODE §11 の表のテストが, `HostMigrationTests` を除いて全部通る(引きつぎは M8).
 
-**次の人へ**:
+**次の人へ**(M5 完了. `swift test` 129 件. **M8 の Core 部分(ホストの引きつぎ)も入っている**):
+
+- ファイル: `Net/{ByteCoding,Messages,Transport,ClockSync,InterpolationBuffer,NetSession}.swift`. メッセージは NETCODE §4 の形(`playerState` は 22 バイト).
+  `MessageCodec.decode` は短い・余る・知らない種類・範囲外の数字をすべて `nil`(でたらめなデータ 2 万個でも落ちない).
+- `NetSession` の使い方(M6・M7 でつなぐ側が呼ぶ): `begin(peers:now:)` → `receive(_:from:now:)` / `peerChanged(_:connected:now:)` / `tick(now:local:)` →
+  どれも `[Outgoing]` を返すので `MatchTransport.send` へ. ホストは `startMatch(kind:bots:now:)`(「もう一度」も同じ). 自分の行動は `send(_:now:)`
+  (`hitClaim`・`pickupRequest` はホストへ, `shotFx` は全員へ). 画面は `match`・`drainEvents()`・`drainShots()`・`remotePose(slot:now:)` を読む.
+  **`now` は「自分の端末の時計(秒. 起動してからの経過時間など 0 以上の単調な値)」**.
+- **ホストも, 送った内容を「読み直した形(cm・ms に丸めたもの)」で自分に反映する**(`broadcast`). こうしないと端末ごとに写しが 1 cm 未満ずれる.
+- `leave`: ホストは本人から来たものを元に `playerLeft`(やられた扱い + ぬけた)を出す. ホスト以外は **ホストが知らせたものだけ** 反映する.
+- ホストの引きつぎ(`migrateHost`): 切れたのがホストなら, 残った人の peerKey 最小が新ホスト(全員が同じ計算). `hostEpoch` を 1 増やし,
+  新ホストは `HostLogic.adopt` で続き(ラウンドのあいだなら次のラウンドも始める)・古いホストをぬけた扱い・スナップショットを送る.
+  新ホストの時計は 今のずれのまま固定され, ほかの人は ping を撃ち直して合わせる. テスト: 4 台でホストを切っても円・勝ち負け・次のラウンドが続く.
+- テスト用の `Cluster`(`Tests/BattleCoreTests/Cluster.swift`)が, 遅れ 50〜150 ms・抜け(信頼なしだけ)・順番の入れかわり・時計のずれを再現する.
+- 時計合わせの誤差は 20 ms 以内(`ClockSyncTests`), 同時スタートは ±50 ms 以内(`NetSessionTests`)を確かめた.
+- **まだ無いもの**: ボット(`NetSession.submitBot` の口だけある → M6 の `BotBrain`), `GameKitTransport`(M7).
 
 ---
 

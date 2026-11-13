@@ -446,6 +446,25 @@ struct HostLogic {
                             lootTaken: s.loot.map(\.taken))
     }
 
+    // MARK: - ホストの引きつぎ
+
+    /// 前のホストが切れたあと, 全員が持っている `MatchState` の写しから 新しいホストとして続ける(`docs/NETCODE.md` §8).
+    mutating func adopt(state s: MatchState, epoch: Int, now: Double) {
+        hostEpoch = epoch
+        roundKey = (s.matchId, s.round)
+        zoneTick = max(0, Int(s.matchTime(at: now)))
+        lastSnapshot = -1000
+        lootRestores = []
+        if s.phase == .betweenRounds { nextRoundAt = now + GameMode.betweenRounds }
+        if let delay = s.mode.lootRespawnDelay {
+            for item in s.loot where item.taken { lootRestores.append((now + delay, item.id)) }
+        }
+        if s.mode.kind == .killRace {
+            respawnCandidates = world.arenaSpawns(centerX: s.arena.x, centerZ: s.arena.z, radius: s.arena.r, count: 8,
+                                                  fraction: s.mode.spawnFraction) ?? []
+        }
+    }
+
     // MARK: - ぬけた人
 
     /// だれかが切れた・ぬけた. その人をやられた扱いにし, 残りが 1 人なら終わらせる.
