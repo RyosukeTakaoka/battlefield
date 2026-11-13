@@ -54,3 +54,15 @@ func standingPlayer(_ x: Float = 0, _ z: Float = 0, yaw: Float = 0) -> PlayerSta
     p.isGrounded = true
     return p
 }
+
+/// リポジトリの `Battlefield/Resources` の場所(テストのファイルの位置から決める).
+let resourcesURL = URL(fileURLWithPath: #filePath)
+    .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    .appendingPathComponent("Battlefield/Resources")
+
+/// 本物の島(`island.json` + `island.height`)を読む.
+func loadIsland() throws -> ArenaWorld {
+    let map = try MapData.decode(from: Data(contentsOf: resourcesURL.appendingPathComponent("Maps/island.json")))
+    let hf = try Heightfield(data: Data(contentsOf: resourcesURL.appendingPathComponent("Maps/island.height")))
+    return ArenaWorld(map: map, terrain: hf)
+}
