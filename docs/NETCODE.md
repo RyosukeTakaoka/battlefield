@@ -203,10 +203,13 @@ ping を送る(自分の時刻 t0)→ ホストが pong(t0, ホストの時刻 h
 | ファイル | やること | 使う API(公式ドキュメントで確かめる) |
 |---|---|---|
 | `GameCenterAuth` | アプリを開いたらログイン. できない・制限されているときは「オンライン対戦」を押せなくする | `GKLocalPlayer.local.authenticateHandler`, `isAuthenticated`, `isMultiplayerGamingRestricted`, `GKAccessPoint` |
-| `Matchmaking` | 人あつめの画面を出す. 招待を受ける | `GKMatchRequest`(`minPlayers` 2, `maxPlayers` 8), `GKMatchmakerViewController`, `GKMatchmakerViewControllerDelegate`, `GKLocalPlayerListener`(`player(_:didAccept:)`), `GKMatchmaker.shared().finishMatchmaking(for:)` |
+| `Matchmaking` | 人あつめの画面を出す. 招待を受ける | `GKMatchRequest`(`minPlayers` 2, `maxPlayers` = `min(8, GKMatchRequest.maxPlayersAllowedForMatch(of: .peerToPeer))`. **8 や 4 と決め打ちしない**), `GKMatchmakerViewController`, `GKMatchmakerViewControllerDelegate`, `GKLocalPlayerListener`(`player(_:didAccept:)`), `GKMatchmaker.shared().finishMatchmaking(for:)` |
 | `GameKitTransport` | `MatchTransport` の実物 | `GKMatch.delegate`, `players`, `expectedPlayerCount`, `send(_:to:dataMode:)`, `sendData(toAllPlayers:with:)`, `disconnect()`, `GKMatchDelegate` の `match(_:didReceive:fromRemotePlayer:)`・`match(_:player:didChange:)`・`match(_:didFailWithError:)` |
 
 気をつけること:
+
+- 人数の上限は Apple の文書に数字が無い. 起動時に聞いた値をログと「通信のようす」に出し, ロビーの「あと何人入れるか」もその値で出す.
+  Core の `GameRules.maxPlayers`(= 8)は「このゲームが耐えられる数」で, Game Center の上限とは別のもの.
 
 - delegate は, どのスレッドで呼ばれるか決まっていないと考える. かならずメインへ渡してから Core にさわる.
 - `GKMatch.players` に **自分は入っていない**.
