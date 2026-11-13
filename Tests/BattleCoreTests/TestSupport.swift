@@ -132,3 +132,55 @@ final class MatchHarness {
     func shield(_ slot: Int) -> Int { state.participant(slot)!.shield }
     func alive(_ slot: Int) -> Bool { state.participant(slot)!.alive }
 }
+
+/// ホスト + ボットだけで試合を動かす小さな道具(人間は 0 人以上). 毎コマ ボットを動かし, 出したメッセージをホストへ通す.
+final class BotMatch {
+    let h: MatchHarness
+    var runner: BotRunner
+    var humans: [Int: Vec3] = [:]
+    private var eventIndex = 0
+    var hits = 0
+
+    init(world: ArenaWorld, kind: GameMode.Kind, roster: [RosterEntry], seed: UInt64 = 7, difficulty: BotDifficulty = .normal) {
+        h = MatchHarness(world: world, seed: seed)
+        runner = BotRunner(world: world, difficulty: difficulty, seed: seed)
+        h.apply(h.host.beginMatch(matchId: 1, kind: kind, roster: roster, now: h.now))
+    }
+
+    static func allBots(_ n: Int) -> [RosterEntry] {
+        (0..<n).map { RosterEntry(slot: $0, peerKey: 0, name: "ボット\($0)", isBot: true) }
+    }
+
+    func step(_ dt: Double = 1.0 / 60) {
+        h.now += dt
+        h.events += h.state.advance(now: h.now)
+        h.apply(h.host.tick(state: h.state, now: h.now))
+        let fresh = Array(h.events[eventIndex...])
+        eventIndex = h.events.count
+        runner.observe(events: fresh, match: h.state, now: h.now)
+        for m in runner.update(now: h.now, dt: Float(dt), match: h.state, humans: humans) {
+            switch m {
+            case .playerState(let s):
+                h.host.observe(slot: s.slot, position: s.position, weapon: s.weapon)
+            case .hitClaim(let c):
+                let out = h.host.handle(m, sender: c.attacker, state: h.state, now: h.now)
+                if !out.isEmpty { hits += 1 }
+                h.apply(out)
+            case .pickupRequest(let r):
+                h.apply(h.host.handle(m, sender: r.slot, state: h.state, now: h.now))
+            default:
+                break
+            }
+        }
+    }
+
+    func run(_ seconds: Double) {
+        let end = h.now + seconds
+        while h.now < end - 1e-9 { step() }
+    }
+
+    func run(until condition: () -> Bool, timeout: Double) {
+        let end = h.now + timeout
+        while !condition() && h.now < end { step() }
+    }
+}

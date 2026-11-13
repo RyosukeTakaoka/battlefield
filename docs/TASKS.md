@@ -236,7 +236,16 @@ Airplane から写したファイルの一覧が「次の人へ」に書いて�
 **ユーザーに頼む**: 1 台で「れんしゅう」を最後まで. 確かめること: ねらいやすいか(感度), ボットが強すぎ・弱すぎないか,
 1 ラウンドの長さ, 武器ごとの強さ, 音, 60 fps. 感想をもらい, `GameRules` の数字を直す(直したら DESIGN の表も).
 
-**次の人へ**:
+**次の人へ**(M6 の Core 部分は完了. `swift test` 149 件. 画面・音・演出(Apple の部品)は下の「Apple の層」を参照):
+
+- `Bots/BotRunner.swift`: ホストが全ボットを動かす. `reset(match:)`(ラウンドの始まりで自動), `update(now:dt:match:humans:) -> [Message]`
+  (`playerState`・`shotFx`・`hitClaim`・`pickupRequest` を返す → `NetSession.submitBot`), `observe(events:match:now:)`(武器をひろった・生き返った).
+  強さ 3 段階 `BotDifficulty.easy/normal/hard`(反応の遅れ・ねらいの誤差・振り向く速さ). 動きは人と同じ `CharacterMotor`, 当たりは `Hitscan`.
+- 確かめ: ボットが島を歩く・水に落ちない・撃ち合ってダメージが入る・人が立っていれば見つけて撃つ・武器の組が合う・同じ種で同じ試合.
+  **ボット 4 体のラウンド戦 100 回が すべて終わった(平均 5.9 ラウンド・最大 10 ≤ 12)**: `BOT_STRESS=100 swift test --filter testFourBotRoundBattlesAlwaysFinish`.
+- `Camera/ThirdPersonCamera.swift`(肩ごし. かべで手前へ寄る・構えると近づく・スナイパーは画角 15°), `Input/TouchLayout.swift`(指を 1 本ずつ追う:
+  左 = 移動スティック, 右 = 視点, ボタン. 撃ちながら視点. 左きき・上下反対)を作った. どちらも テストあり.
+- `BotMatch`(テスト): ホスト + ボットだけで試合を動かす道具.
 
 ---
 
