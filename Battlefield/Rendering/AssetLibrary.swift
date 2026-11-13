@@ -161,7 +161,8 @@ final class AssetLibrary {
     /// 自分で作るメッシュ(地形)の UV をこれに合わせるので, どちらの約束でも
     /// 地面の画像が正しい向きに貼られる.
     func detectUVOrigin() -> TerrainMesher.UVConvention {
-        guard let root = try? Entity.load(named: "SkyDome", in: .main) else { return .init() }
+        // 空のドームは あとで空にも使うので, 読んだものを とっておく(`model` が覚える). 2 回読まない.
+        guard let root = try? model("SkyDome") else { return .init() }
         var topY = -Float.greatestFiniteMagnitude
         var topV: Float = 1
         func visit(_ e: Entity) {

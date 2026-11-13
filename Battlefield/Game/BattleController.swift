@@ -187,6 +187,7 @@ final class BattleController {
     func load() async {
         guard !started else { return }
         started = true
+        LoadTimer.lap("ロード開始")
         do {
             guard let jsonURL = Bundle.main.url(forResource: "island", withExtension: "json"),
                   let heightURL = Bundle.main.url(forResource: "island", withExtension: "height") else {
@@ -197,15 +198,22 @@ final class BattleController {
             let world = ArenaWorld(map: map, terrain: terrain)
             self.world = world
             loadState = .loading(0.05)
+            LoadTimer.lap("島のデータを読む")
+            // 進み具合は その場で書く(メインスレッドの上). 以前は `Task { }` で あとから書いていたため,
+            // `.ready` にしたあとで「ロード中」に戻ってしまい, ロード画面から抜けられないことがあった.
             let scene = try await ArenaScene.build(world: world, assets: assets, quality: settings.quality) { [weak self] p in
-                Task { @MainActor in self?.loadState = .loading(p) }
+                guard let self, case .loading = self.loadState else { return }
+                self.loadState = .loading(p)
             }
             arena = scene
             director.install(arena: scene, characters: charactersRoot, effects: effects.root, map: map, assets: assets,
                              quality: settings.quality)
+            LoadTimer.lap("画面に置く")
             sound.start()
             startSession(world: world)
+            LoadTimer.lap("試合の準備")
             loadState = .ready
+            LoadTimer.done()
         } catch {
             loadState = .failed(error.localizedDescription)
             phase = .disconnected("読み込みに失敗しました: \(error.localizedDescription)")

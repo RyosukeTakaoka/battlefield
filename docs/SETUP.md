@@ -78,6 +78,9 @@ Core(`Battlefield/Core/`)は Linux で 157 件のテストが通っています.
 
 ## 実機で見て確かめること(Airplane と同じ注意)
 
+- **ロードの時間**: Xcode の下の欄(コンソール)に `[ロード] 小物の形を読む(13 種類): 0.82 秒(ここまで 1.10 秒)` のような行が出る.
+  「島をつくっています」が長いと感じたら, この行を全部 AI に貼る(どこが遅いか分かる)
+
 - **島の絵の向き**: 村の広場(灰色の円)が 実際の村の家の下にあるか. ずれていたら `AssetLibrary.detectUVOrigin` の判定か `ArenaScene.build` の絵の割りふり(`island_0〜3` = 西北・東北・西南・東南)を確かめる
 - **ボタンの大きさ・場所**: iPhone / iPad で押しやすいか(`Core/Input/TouchLayout.swift` の `buttons`)
 - **ねらいやすさ**: 感度(設定)・構えたときの感度(`BattleController.update` の `sens`)

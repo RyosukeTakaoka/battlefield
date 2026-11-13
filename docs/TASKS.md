@@ -70,6 +70,19 @@ Apple の文書で Game Center のリアルタイム対戦の上限が 16 人と
 
 ---
 
+## ロード画面から抜けられない不具合を直した(2026-11-13)
+
+- 原因: `BattleController.load` が, 進み具合を `Task { @MainActor in loadState = .loading(p) }`(あとで実行)で書いていた.
+  組み立てが終わって `.ready` にしたあとに その予約が動くと, `loadState` が「ロード中」に戻り, ロード画面のまま止まる
+  (毎コマの `update` も `.ready` のときだけ動くので, ゲームも動かない).
+- 直し方: 進み具合は その場で書き, `.loading` のときだけ書きかえる. `ArenaScene.build` の `progress` は `@MainActor` にした.
+- ついでに: 小物の USDZ を 1 つ読むたびにバーを進めて 画面を描き直させる(`breathe()`)/ 空のドームを 2 回読まない /
+  各段階の時間を コンソールに出す(`Game/LoadTimer.swift`. `[ロード] …` の行).
+- Core の部分(地形・小物のまとめ・試合の準備)は, 最適化なしでも 0.4 秒ほど(`LoadBenchTests`). 遅いとすれば RealityKit 側
+  (USDZ の読みこみ・メッシュを GPU へ渡す所). 実機の `[ロード]` の行で確かめる.
+
+---
+
 ## M0 土台
 
 **目的**: 何も無いリポジトリを, Airplane と同じ形にする.

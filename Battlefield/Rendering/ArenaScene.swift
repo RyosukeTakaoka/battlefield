@@ -24,20 +24,24 @@ final class ArenaScene {
     // MARK: - 組み立て
 
     static func build(world: ArenaWorld, assets: AssetLibrary, quality: GameSettings.Quality,
-                      progress: @escaping (Double) -> Void) async throws -> ArenaScene {
+                      progress: @escaping @MainActor (Double) -> Void) async throws -> ArenaScene {
         let scene = ArenaScene(world: world)
         let map = world.map
         let uv = assets.detectUVOrigin()
         progress(0.05)
+        await breathe()
 
-        // 小物の形(USDZ から頂点を取り出す).
+        // 小物の形(USDZ から頂点を取り出す). 1 つ読むたびに バーを進めて, 画面を描き直させる.
         var propMeshes: [String: [MeshData]] = [:]
-        for name in Set(map.props.map(\.name)) {
+        let names = Set(map.props.map(\.name)).sorted()
+        for (i, name) in names.enumerated() {
             if let variants = try? assets.propMeshes(name) {
                 propMeshes[name] = variants.map { MeshData(positions: $0.positions, normals: $0.normals, uvs: $0.uvs, indices: $0.indices) }
             }
+            progress(0.05 + 0.25 * Double(i + 1) / Double(max(names.count, 1)))
+            await breathe()
         }
-        progress(0.15)
+        LoadTimer.lap("小物の形を読む(\(names.count) 種類)")
 
         // 区画のメッシュは重いので, 画面を止めないよう裏で作る(裏の処理には 書き換えない値だけ渡す).
         struct Cell { var cx: Int; var cz: Int }
@@ -70,6 +74,8 @@ final class ArenaScene {
             }
         }.value
         progress(0.5)
+        LoadTimer.lap("地形と小物のメッシュを作る(裏で)")
+        await breathe()
 
         let rockTexture = try? assets.texture("Rock_valley", ext: "jpg")
         let atlas = try assets.texture("PropAtlas", ext: "png")
@@ -89,8 +95,9 @@ final class ArenaScene {
             }
             scene.root.addChild(entity)
             progress(0.5 + 0.35 * Double(i + 1) / Double(built.count))
-            await Task.yield()
+            await breathe()
         }
+        LoadTimer.lap("区画を RealityKit に渡す")
 
         // 海.
         let waterNormal = try? assets.texture("Water_Normal", ext: "png", semantic: .normal)
@@ -103,7 +110,14 @@ final class ArenaScene {
         scene.addZone()
         scene.root.addChild(scene.lootRoot)
         progress(1.0)
+        LoadTimer.lap("海・空・円")
         return scene
+    }
+
+    /// ほんの少し(1 ms)待って, そのあいだに 画面(ロードのバー)を描き直させる.
+    /// `Task.yield()` だけだと, メインスレッドが すぐ戻ってきて 画面が描かれないことがある.
+    private static func breathe() async {
+        try? await Task.sleep(nanoseconds: 1_000_000)
     }
 
     private func addSky(assets: AssetLibrary, texture: String) throws {
