@@ -9,6 +9,10 @@ enum GameRules {
     /// 物理を進める固定の刻み(秒).
     static let tick: Float = 1.0 / 60
 
+    // MARK: 体力
+    static let maxHP = 100
+    static let maxShield = 50
+
     // MARK: プレイヤーの体と動き
     static let playerRadius: Float = 0.4
     static let playerHeight: Float = 1.8

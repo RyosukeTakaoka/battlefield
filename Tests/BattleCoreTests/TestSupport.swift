@@ -66,3 +66,69 @@ func loadIsland() throws -> ArenaWorld {
     let hf = try Heightfield(data: Data(contentsOf: resourcesURL.appendingPathComponent("Maps/island.height")))
     return ArenaWorld(map: map, terrain: hf)
 }
+
+/// 1 台の中で, ホストと「写し」を動かす小さな道具(通信は通さない). 返ってきたメッセージを順に apply する.
+final class MatchHarness {
+    var state = MatchState()
+    var host: HostLogic
+    var now: Double = 100
+    var messages: [Message] = []
+    var events: [MatchEvent] = []
+    let world: ArenaWorld
+
+    init(world: ArenaWorld, seed: UInt64 = 7) {
+        self.world = world
+        host = HostLogic(world: world, seed: seed)
+    }
+
+    static func roster(_ n: Int) -> [RosterEntry] {
+        (0..<n).map { RosterEntry(slot: $0, peerKey: UInt64(1000 + $0), name: "P\($0)", isBot: false) }
+    }
+
+    func apply(_ msgs: [Message]) {
+        for m in msgs {
+            events += state.apply(m, now: now)
+            messages.append(m)
+        }
+    }
+
+    /// 試合を始めて, 戦い始め(カウントダウンの直後)まで進める.
+    func begin(_ kind: GameMode.Kind, players n: Int, matchId: UInt32 = 1) {
+        apply(host.beginMatch(matchId: matchId, kind: kind, roster: Self.roster(n), now: now))
+        advance(to: state.startAt + 0.05)
+    }
+
+    func advance(to t: Double, step: Double = 0.1) {
+        while now < t - 1e-9 {
+            now = min(now + step, t)
+            events += state.advance(now: now)
+            apply(host.tick(state: state, now: now))
+        }
+    }
+
+    /// 人の位置と武器をホストに知らせる(playerState のかわり).
+    func place(_ slot: Int, _ x: Float, _ z: Float, weapon: WeaponKind = .sniper) {
+        host.observe(slot: slot, position: Vec3(x, world.terrainHeight(x: x, z: z), z), weapon: weapon)
+    }
+
+    @discardableResult
+    func claim(from a: Int, to t: Int, weapon: WeaponKind = .sniper, head: Bool = true, pellets: Int = 1, distance: Float,
+               shotId: UInt16 = 1) -> [Message] {
+        let m = Message.hitClaim(HitClaimMessage(shotId: shotId, attacker: a, target: t, weapon: weapon, head: head, pellets: pellets,
+                                                 distance: distance))
+        let out = host.handle(m, sender: a, state: state, now: now)
+        apply(out)
+        return out
+    }
+
+    @discardableResult
+    func pickup(slot: Int, loot: Int) -> [Message] {
+        let out = host.handle(.pickupRequest(PickupRequestMessage(lootId: loot, slot: slot)), sender: slot, state: state, now: now)
+        apply(out)
+        return out
+    }
+
+    func hp(_ slot: Int) -> Int { state.participant(slot)!.hp }
+    func shield(_ slot: Int) -> Int { state.participant(slot)!.shield }
+    func alive(_ slot: Int) -> Bool { state.participant(slot)!.alive }
+}

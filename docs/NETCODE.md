@@ -149,7 +149,7 @@ struct Outgoing { var data: Data; var to: [PeerHandle]?; var reliable: Bool }
 | キル勝負 | だれかが目標のキル数 / 5 分たった(同じ数なら, 次の 1 キルまで続ける) | `roundEnd`(`final = 1`). やられた人には 3 秒後の時刻で `respawn`, 取られた物には 20 秒後に `lootRestored` |
 | バトルロイヤル | 生きている人が 1 人以下 | `roundEnd`(`final = 1`) |
 
-- キル勝負の無敵(復活して 2 秒. その人の `playerState` の「撃っている」が立ったら終わり)のあいだの `hitClaim` は通さない.
+- キル勝負の無敵(復活して 2 秒. 時間が来るまで)のあいだ, その人への `hitClaim` は通さない(撃っても無敵は終わらない. v1 では簡単にした).
 
 **だれかが切れたら**: その人を やられた扱いにする `damage`(attacker = 254).
 
