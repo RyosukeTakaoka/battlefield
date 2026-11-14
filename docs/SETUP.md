@@ -52,7 +52,7 @@ python3 Tools/map/build_arena.py
 ## 最初のビルドで確かめること(AI が書き足していく表)
 
 Linux で書いたため, Apple の部品を使うファイルは **まだ一度もコンパイルしていません**(文法だけは `swiftc -parse` で確かめた).
-Core(`Battlefield/Core/`)は Linux で 167 件のテストが通っています. 下の表のとおり, 使っている API の一覧です.
+Core(`Battlefield/Core/`)は Linux で 175 件のテストが通っています. 下の表のとおり, 使っている API の一覧です.
 エラーが出たら, 赤い文字を そのまま AI に貼ってください.
 
 | 場所 | 使っている API | 根拠 |
@@ -66,6 +66,7 @@ Core(`Battlefield/Core/`)は Linux で 167 件のテストが通っています.
 | `Features/Game/TouchControlsView.swift` | `UIViewRepresentable`, `touchesBegan / Moved / Ended / Cancelled`, `isMultipleTouchEnabled`, `UIView.safeAreaInsets`, `safeAreaInsetsDidChange()`, `TimelineView(.periodic)` | 新しく書いた |
 | `Features/Game/GameScreen.swift` | `.defersSystemGestures(on:)`(画面のはしのタッチを iOS より先にゲームへ) | iOS 16 から |
 | `Features/Game/HUDView.swift`, `MinimapView.swift` | `Canvas`, `Path`, `.blendMode(.destinationOut)` + `compositingGroup()`, `Image(uiImage:)` | 新しく書いた |
+| `Game/BattleController.swift`(ダメージの数字) | `ARView.project(_:)`(3D の点 → 画面の点) | RealityKit の ARView |
 | `Features/*` | `@Environment(AppModel.self)`, `@Bindable`, `confirmationDialog`, `Picker(.segmented)` | iOS 17 |
 | `Services/Audio/SoundEngine.swift` | `AVAudioEngine`, `AVAudioPlayerNode`, `AVAudioPCMBuffer` | Airplane の方式 |
 | `Services/GameCenter/GameCenterAuth.swift` | `GKLocalPlayer.local.authenticateHandler`, `isAuthenticated`, `isMultiplayerGamingRestricted`, `displayName` | Apple の文書で確認(2026-11-13) |

@@ -123,13 +123,39 @@ final class HostLogicTests: XCTestCase {
                                                             distance: 20)), sender: 1, state: h.state, now: h.now)
         rejected(spoof, "attacker must be the sender")
         XCTAssertEqual(h.hp(1), 100)
-        // 正しい申し出は通る. すぐの 2 回目は 速すぎる.
+        // 正しい申し出は通る. 通信で かたまって届いた 2〜3 個は通すが, ずっと速すぎる申し出は 通さない.
         XCTAssertFalse(h.claim(from: 0, to: 1, head: false, distance: 20, shotId: 20).isEmpty)
-        h.now += 0.1
-        rejected(h.claim(from: 0, to: 1, head: false, distance: 20, shotId: 21), "faster than the fire rate")
+        h.now += 0.05
+        XCTAssertFalse(h.claim(from: 0, to: 1, head: false, distance: 20, shotId: 21).isEmpty, "a small burst is fine")
+        var accepted = 0
+        for i in 0..<10 {                                  // スナイパー(0.8 発/秒)で 0.05 秒ごとに 10 回
+            h.now += 0.05
+            if !h.claim(from: 0, to: 1, head: false, distance: 20, shotId: UInt16(30 + i)).isEmpty { accepted += 1 }
+            if !h.alive(1) { break }
+        }
+        XCTAssertLessThanOrEqual(accepted, 1, "spamming faster than the weapon is rejected")
         // 同じ shotId の 2 度送り.
         h.now += 2
         rejected(h.claim(from: 0, to: 1, head: false, distance: 20, shotId: 20), "duplicate shotId")
+    }
+
+    func testClaimBurstsAreFineButSpamIsCapped() throws {
+        let h = try makeRound()
+        // 100 m はなれて アサルトライフル(1 発 9 ダメージ前後なので, すぐには たおれない).
+        h.place(0, 0, 0, weapon: .assaultRifle); h.place(1, 100, 0)
+        var accepted = 0
+        for i in 0..<30 {                                  // 0.5 秒に 30 回(武器は 9 発/秒)
+            if !h.claim(from: 0, to: 1, weapon: .assaultRifle, head: false, distance: 100, shotId: UInt16(i + 1)).isEmpty { accepted += 1 }
+            h.now += 0.5 / 30
+        }
+        XCTAssertTrue(h.alive(1))
+        XCTAssertGreaterThanOrEqual(accepted, 5, "the real rate plus a small burst gets through")
+        XCTAssertLessThanOrEqual(accepted, 9, "not 30")
+        // 1 秒あとには また まとめて 3 つ 通る(通信で かたまって届いた分).
+        h.now += 1
+        var burst = 0
+        for i in 0..<3 where !h.claim(from: 0, to: 1, weapon: .assaultRifle, head: false, distance: 100, shotId: UInt16(100 + i)).isEmpty { burst += 1 }
+        XCTAssertEqual(burst, 3)
     }
 
     func testDeadPlayersCannotShootOrBeShot() throws {

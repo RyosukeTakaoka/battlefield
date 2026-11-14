@@ -19,6 +19,7 @@ struct SettingsView: View {
                         row("視点の感度  \(String(format: "%.1f", model.settings.lookSensitivity))") {
                             Slider(value: $model.settings.lookSensitivity, in: 0.5...2.0, step: 0.1)
                         }
+                        Toggle("ねらいの助け(照準の近くの敵へ 弾を寄せる)", isOn: $model.settings.aimAssist)
                         Toggle("視点の上下を反対にする", isOn: $model.settings.invertY)
                         Toggle("左きき(ボタンを左に)", isOn: $model.settings.leftHanded)
                         row("音の大きさ") { Slider(value: $model.settings.soundVolume, in: 0...1) }

@@ -7,10 +7,20 @@ struct HUDView: View {
     var body: some View {
         let hud = controller.hud
         ZStack {
-            if hud.scope { ScopeOverlay() }
-            if hud.outsideZone { ZoneWarning() }
-            DamageIndicator(angle: controller.damageAngle, alpha: controller.damageAlpha)
-            Crosshair(aiming: hud.aiming, hit: controller.hitMarker, head: controller.headMarker, reload: hud.reload)
+            // 照準まわりは 画面全体(安全な範囲の外まで)の まん中に置く. カメラ(3D)が ねらっているのは 画面全体のまん中.
+            // (以前は 安全な範囲のまん中に描いていて, iPhone の横向きで 照準が 約 10 pt 上にずれていた.)
+            ZStack {
+                if hud.scope { ScopeOverlay() }
+                if hud.outsideZone { ZoneWarning() }
+                DamageIndicator(angle: controller.damageAngle, alpha: controller.damageAlpha)
+                Crosshair(aiming: hud.aiming, hit: controller.hitMarker, head: controller.headMarker, reload: hud.reload)
+                if let name = hud.targetName {
+                    TargetBar(name: name, hp: hud.targetHP, shield: hud.targetShield).offset(y: 58)
+                }
+                DamagePopups(controller: controller)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea()
 
             // 左上: ミニマップと点.
             VStack(alignment: .leading, spacing: 8) {
@@ -89,6 +99,54 @@ struct HUDView: View {
         }
         .allowsHitTesting(false)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: controller.toast)
+    }
+}
+
+/// 当てた所に出る ダメージの数字(白 = 体, 黄色 = 頭). 30 回/秒 位置を計算しなおす.
+private struct DamagePopups: View {
+    let controller: BattleController
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1.0 / 30)) { _ in
+            ZStack {
+                ForEach(controller.screenPopups()) { p in
+                    Text(p.text)
+                        .font(Theme.font(p.head ? 30 : 24))
+                        .foregroundStyle(p.head ? Theme.gold : .white)
+                        .shadow(color: .black.opacity(0.8), radius: 2)
+                        .opacity(p.opacity)
+                        .position(p.point)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+/// 最後に当てた相手の 名前と 体力・シールド(ホストが決めた本当の値).
+private struct TargetBar: View {
+    let name: String
+    let hp: Int
+    let shield: Int
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Text(hp > 0 ? name : "\(name) をたおした!").font(Theme.font(13)).foregroundStyle(.white)
+            HStack(spacing: 2) {
+                bar(Double(shield) / Double(GameRules.maxShield), Color(red: 0.3, green: 0.65, blue: 1), width: 50)
+                bar(Double(hp) / Double(GameRules.maxHP), hp > 30 ? Theme.leaf : Theme.coral, width: 100)
+            }
+        }
+        .padding(.horizontal, 8).padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.45)))
+    }
+
+    private func bar(_ value: Double, _ color: Color, width: CGFloat) -> some View {
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.25))
+            RoundedRectangle(cornerRadius: 3).fill(color).frame(width: width * max(0, min(1, value)))
+        }
+        .frame(width: width, height: 7)
     }
 }
 

@@ -72,6 +72,10 @@ final class BattleController {
         var spectating: String?
         var alive = true
         var netText: String?
+        /// 最後に当てた相手(名前・体力・シールド). 照準の下に 少しのあいだ出す.
+        var targetName: String?
+        var targetHP = 0
+        var targetShield = 0
     }
 
     struct Toast: Equatable, Identifiable {
@@ -163,6 +167,20 @@ final class BattleController {
     @ObservationIgnored private var pendingPrompt: String?
     /// ジャンプを押した. 次に物理を進めるときまで覚えておく(120 Hz の画面では 物理を進めないコマがあるため).
     @ObservationIgnored private var pendingJump = false
+    /// 構えている(「構える」ボタンを タップするたびに 入/切).
+    @ObservationIgnored private var aimOn = false
+    /// 当てた所に出す ダメージの数字.
+    struct DamagePopup {
+        var position: Vec3
+        var amount: Int
+        var head: Bool
+        var born: Double
+        let id: Int
+    }
+    @ObservationIgnored private var popups: [DamagePopup] = []
+    @ObservationIgnored private var popupCounter = 0
+    /// 最後に当てた相手と, 表示をやめる時刻.
+    @ObservationIgnored private var lastTarget: (slot: Int, until: Double)?
 
     init(mode: Mode, settings: GameSettings, playerName: String, transport: MatchTransport? = nil) {
         self.mode = mode
@@ -324,7 +342,7 @@ final class BattleController {
             if player.isGrounded { flags.insert(.grounded) }
             if touch.isHeld(.fire) { flags.insert(.firing) }
             if loadout.isReloading { flags.insert(.reloading) }
-            if touch.isHeld(.aim) { flags.insert(.aiming) }
+            if aimOn { flags.insert(.aiming) }
             snapshot = LocalSnapshot(player: player, flags: flags, weapon: loadout.current ?? .handgun)
         }
         send(s.tick(now: local, local: snapshot))
@@ -349,8 +367,17 @@ final class BattleController {
         let look = touch.takeLook()
         let pressed = touch.takePressed()
         if pressed.contains(.jump) { pendingJump = true }
-        let aiming = touch.isHeld(.aim)
-        let sens: Float = aiming ? 0.55 : 1
+        let canActNow = (s.mySlot.flatMap { s.match.participant($0) }?.alive ?? false) && s.match.phase == .playing
+        if pressed.contains(.aim), canActNow { aimOn.toggle() }
+        if !canActNow { aimOn = false }
+        let aiming = aimOn
+        // 照準が敵の近くにあるあいだは 視点を少し遅くする(ねらいの助け. 設定で切れる).
+        var friction: Float = 1
+        if settings.aimAssist, let cam = cameraPose, let spec = loadout.currentSpec {
+            friction = AimAssist.lookScale(cameraPosition: cam.position, cameraDirection: cam.forward,
+                                           targets: visibleTargets(session: s, mySlot: s.mySlot, now: local), maxRange: spec.maxRange)
+        }
+        let sens: Float = (aiming ? 0.55 : 1) * friction
         player.yaw += look.yaw * sens
         player.pitch = clamp(player.pitch + look.pitch * sens, -1.35, 1.35)
         let canAct = (me?.alive ?? false) && match.phase == .playing && s.status == .inMatch
@@ -390,7 +417,7 @@ final class BattleController {
             if pressed.contains(.switchWeapon) {
                 let before = loadout.current
                 loadout.switchSlot(now: local)
-                if loadout.current != before { sound.play(.switchWeapon) }
+                if loadout.current != before { sound.play(.switchWeapon); aimOn = false }
             }
             // 押しているあいだ + 1 コマより短いタップ(押した瞬間の記録)でも 撃つ.
             let held = touch.isHeld(.fire) || pressed.contains(.fire)
@@ -445,14 +472,13 @@ final class BattleController {
 
     private func fire(session s: inout NetSession, world: ArenaWorld, now: Double, mySlot: Int?) {
         guard let spec = loadout.currentSpec, let mySlot, let cam = cameraPose else { return }
-        let session = s
-        var targets: [Hitscan.Target] = []
-        for p in session.match.participants where p.slot != mySlot && p.alive && !p.left {
-            if let pose = session.remotePose(slot: p.slot, now: now) { targets.append(Hitscan.Target(slot: p.slot, feet: pose.position)) }
-        }
-        let aim = Hitscan.aimPoint(world: world, cameraPosition: cam.position, cameraDirection: cam.forward, targets: targets)
+        let targets = visibleTargets(session: s, mySlot: mySlot, now: now)
+        // ねらいの助け: 照準のすぐ近くの敵へ 弾を引きよせる(設定で切れる).
+        let aim = AimAssist.aimPoint(world: world, cameraPosition: cam.position, cameraDirection: cam.forward, shooterFeet: player.position,
+                                     targets: targets, maxRange: spec.maxRange,
+                                     degrees: settings.aimAssist ? GameRules.aimAssistDegrees : 0).point
         let results = Hitscan.fire(world: world, shooterFeet: player.position, aimPoint: aim, targets: targets, spec: spec,
-                                   aiming: touch.isHeld(.aim), rng: &rng)
+                                   aiming: aimOn, rng: &rng)
         // 見た目と音.
         rigs[mySlot]?.muzzleFlash()
         sound.play(Self.shotSound(spec.kind))
@@ -460,6 +486,7 @@ final class BattleController {
         player.pitch = clamp(player.pitch + kickPitch * 0.4, -1.35, 1.35)
         var any = false
         var perTarget: [Int: (pellets: Int, head: Bool, distance: Float)] = [:]
+        var dealt: [Int: (amount: Int, head: Bool, at: Vec3)] = [:]
         var fxShots: [ShotFxMessage.Shot] = []
         for r in results {
             effects.tracer(from: r.origin + (r.end - r.origin).normalized() * 0.6, to: r.end)
@@ -477,10 +504,21 @@ final class BattleController {
                 cur.head = cur.head || head
                 cur.distance = min(cur.distance, r.distance)
                 perTarget[slot] = cur
+                var d = dealt[slot] ?? (0, false, r.end)
+                d.amount += spec.damage(distance: r.distance, head: head)
+                d.head = d.head || head
+                dealt[slot] = d
             }
             fxShots.append(.init(end: r.end, hitKind: kind))
         }
         if any { hitMarker = 1 }
+        // 当てた所に ダメージの数字(撃った瞬間に出す. 体力の本当の値は ホストが決めて, 照準の下のバーに出る).
+        for (slot, d) in dealt {
+            popupCounter += 1
+            popups.append(DamagePopup(position: d.at, amount: d.amount, head: d.head, born: now, id: popupCounter))
+            lastTarget = (slot, now + 2.5)
+        }
+        if popups.count > 24 { popups.removeFirst(popups.count - 24) }
         // 通信: 見た目は全員へ(信頼なし), 当たりはホストへ申し出る(信頼あり).
         let origin = results.first?.origin ?? player.eye
         send(s.send(.shotFx(ShotFxMessage(slot: mySlot, weapon: spec.kind, origin: origin, shots: fxShots)), now: now))
@@ -490,6 +528,37 @@ final class BattleController {
                                                   pellets: hit.pellets, distance: hit.distance)), now: now))
         }
     }
+
+    /// 撃てる相手(生きている ほかの人. 画面に見えている姿 = 補間した位置).
+    private func visibleTargets(session s: NetSession, mySlot: Int?, now: Double) -> [Hitscan.Target] {
+        s.match.participants.filter { $0.slot != mySlot && $0.alive && !$0.left }.compactMap { p in
+            s.remotePose(slot: p.slot, now: now).map { Hitscan.Target(slot: p.slot, feet: $0.position) }
+        }
+    }
+
+    /// 画面に出す ダメージの数字(3D の位置を 画面の点に直したもの). 0.9 秒で 上へ動きながら 消える.
+    struct ScreenPopup: Identifiable {
+        let id: Int
+        var text: String
+        var point: CGPoint
+        var opacity: Double
+        var head: Bool
+    }
+
+    func screenPopups() -> [ScreenPopup] {
+        let t = now
+        popups.removeAll { t - $0.born > 0.9 }
+        guard let cam = cameraPose else { return [] }
+        return popups.compactMap { p in
+            let age = Float(t - p.born)
+            let pos = p.position + Vec3(0, 0.4 + age * 1.2, 0)
+            guard (pos - cam.position).dot(cam.forward) > 0.5, let pt = director.view.project(pos) else { return nil }
+            return ScreenPopup(id: p.id, text: "\(p.amount)", point: pt, opacity: Double(1 - max(0, age - 0.5) / 0.4), head: p.head)
+        }
+    }
+
+    /// 「構える」が入っているか(ボタンの絵を 明るくするため).
+    var isAimingOn: Bool { aimOn }
 
     private static func shotSound(_ w: WeaponKind) -> SoundEngine.Effect {
         switch w {
@@ -567,7 +636,12 @@ final class BattleController {
                     damageFade = 1
                     damageAngle = angleToAttacker(attacker, session: s)
                 }
-                if attacker == mySlot, target != mySlot { sound.play(head ? .headshot : .hit); hitMarker = 1; headMarker = head }
+                if attacker == mySlot, target != mySlot {
+                    sound.play(head ? .headshot : .hit)
+                    hitMarker = 1
+                    headMarker = head
+                    lastTarget = (target, now + 2.5)
+                }
             case .eliminated(let slot, let by, _):
                 let text: String
                 if let by { text = "\(name(by)) → \(name(slot))" } else { text = "\(name(slot)) がやられた" }
@@ -634,6 +708,9 @@ final class BattleController {
         cameraRig.snap()
         accumulator = 0
         lastPickup = [:]
+        aimOn = false
+        popups = []
+        lastTarget = nil
         for rig in rigs.values { rig.root.isEnabled = true }
     }
 
@@ -766,7 +843,15 @@ final class BattleController {
         h.aliveCount = match.aliveCount
         h.playerCount = match.activeCount
         h.kills = me?.kills ?? 0
-        h.aiming = touch.isHeld(.aim)
+        h.aiming = aimOn
+        if let lt = lastTarget, now < lt.until, let p = match.participant(lt.slot) {
+            h.targetName = p.name
+            h.targetHP = p.hp
+            h.targetShield = p.shield
+        } else {
+            h.targetName = nil
+            lastTarget = nil
+        }
         h.scope = h.aiming && loadout.current == .sniper
         h.playerX = player.position.x
         h.playerZ = player.position.z

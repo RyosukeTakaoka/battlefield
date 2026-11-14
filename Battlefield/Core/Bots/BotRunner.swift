@@ -7,10 +7,12 @@ struct BotDifficulty: Equatable {
     var aimError: Float
     /// 振り向く速さ(ラジアン/秒).
     var turnRate: Float
+    /// たたかうときの 横の動きの大きさ(0〜1). 大きいほど ねらいにくい.
+    var strafe: Float = 0.6
 
-    static let easy = BotDifficulty(reaction: 0.6, aimError: 7, turnRate: 3)
-    static let normal = BotDifficulty(reaction: 0.35, aimError: 4, turnRate: 5)
-    static let hard = BotDifficulty(reaction: 0.2, aimError: 2, turnRate: 8)
+    static let easy = BotDifficulty(reaction: 0.6, aimError: 7, turnRate: 3, strafe: 0.3)
+    static let normal = BotDifficulty(reaction: 0.35, aimError: 4, turnRate: 5, strafe: 0.55)
+    static let hard = BotDifficulty(reaction: 0.2, aimError: 2, turnRate: 8, strafe: 0.8)
 }
 
 /// ホストが動かすボット(全員ぶん). 人と同じ `CharacterMotor`(動き)・`Hitscan`(当たり)を使う.
@@ -187,7 +189,7 @@ struct BotRunner {
                 b.strafeUntil = now + Double(b.rng.float(in: 0.6...1.6))
                 b.strafeSign = b.rng.nextFloat() < 0.5 ? -1 : 1
             }
-            input.moveX = b.strafeSign * 0.8
+            input.moveX = b.strafeSign * difficulty.strafe
             let spec = b.loadout.currentSpec
             let ideal: Float = spec?.kind == .shotgun ? 10 : (spec?.kind == .sniper ? 45 : 22)
             input.moveY = dist > ideal + 6 ? 1 : (dist < ideal - 8 ? -0.6 : 0)

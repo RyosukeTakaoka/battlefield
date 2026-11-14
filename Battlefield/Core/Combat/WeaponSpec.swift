@@ -48,10 +48,10 @@ struct WeaponSpec: Equatable {
 
     static let all: [WeaponSpec] = [
         WeaponSpec(kind: .handgun, name: "ハンドガン", damage: 18, headMultiplier: 1.5, fireRate: 4, automatic: false,
-                   magazine: 12, reloadTime: 1.2, spreadHip: 1.5, spreadAim: 0.6, falloffStart: 40, falloffHalf: 80,
+                   magazine: 12, reloadTime: 1.2, spreadHip: 1.0, spreadAim: 0.4, falloffStart: 40, falloffHalf: 80,
                    maxRange: 160, pellets: 1),
         WeaponSpec(kind: .assaultRifle, name: "アサルトライフル", damage: 14, headMultiplier: 1.5, fireRate: 9, automatic: true,
-                   magazine: 25, reloadTime: 2.0, spreadHip: 2.2, spreadAim: 0.9, falloffStart: 60, falloffHalf: 120,
+                   magazine: 25, reloadTime: 2.0, spreadHip: 1.4, spreadAim: 0.6, falloffStart: 60, falloffHalf: 120,
                    maxRange: 240, pellets: 1),
         WeaponSpec(kind: .shotgun, name: "ショットガン", damage: 9, headMultiplier: 1.25, fireRate: 1.1, automatic: false,
                    magazine: 5, reloadTime: 2.6, spreadHip: 5.5, spreadAim: 4.5, falloffStart: 12, falloffHalf: 30,

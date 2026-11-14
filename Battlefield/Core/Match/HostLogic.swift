@@ -24,7 +24,10 @@ struct HostLogic {
     struct Observed: Equatable {
         var position: Vec3
         var weapon: WeaponKind
-        var lastClaim: Double = -1000
+        /// 連射の速さを確かめる「持ち点」(バケツ). 申し出 1 つで 1 点使い, 武器の速さ × 1.2 で たまる(`claimBurst` まで).
+        /// 通信で 申し出が かたまって届いても(パケットの再送など), 少しのまとまりは 通す.
+        var claimTokens: Double = Double(GameRules.claimBurst)
+        var claimTokensAt: Double = -1000
     }
     private(set) var observed: [Int: Observed] = [:]
 
@@ -242,14 +245,19 @@ struct HostLogic {
         if let last = lastShotId[c.attacker], last == c.shotId { return }
         let spec = WeaponSpec.spec(c.weapon)
         guard c.pellets >= 1, c.pellets <= spec.pellets,
-              c.distance >= 0, c.distance <= spec.maxRange * 1.1,
-              now - oa.lastClaim >= Double(spec.fireInterval) * 0.7 else { return }
+              c.distance >= 0, c.distance <= spec.maxRange * 1.1 else { return }
+        // 連射が速すぎないか(バケツの持ち点). 以前は「前の申し出から 間隔 × 0.7」で決めていて,
+        // オンラインで申し出が かたまって届くと, 正しい当たりまで捨てていた.
+        let refill = (now - oa.claimTokensAt) * Double(spec.fireRate) * 1.2
+        let tokens = min(Double(GameRules.claimBurst), oa.claimTokens + max(0, refill))
+        guard tokens >= 1 else { return }
         // ホストが知っている 2 人の距離と, 大きくずれていない.
         let known = (oa.position - ot.position).length
         guard abs(c.distance - known) <= 5 else { return }
         let per = spec.damage(distance: c.distance, head: c.head)
         guard per > 0 else { return }
-        oa.lastClaim = now
+        oa.claimTokens = tokens - 1
+        oa.claimTokensAt = now
         observed[c.attacker] = oa
         lastShotId[c.attacker] = c.shotId
         applyDamage(&sc, target: c.target, attacker: c.attacker, weapon: c.weapon, amount: per * c.pellets, head: c.head,

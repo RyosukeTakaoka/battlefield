@@ -65,14 +65,16 @@ struct TouchLayout {
 
     /// ボタンの置き場所(安全な範囲の内側. 右ききは右下, 左ききは左下に撃つボタン).
     /// 数字は「はしから何 pt」. 親指が届く扇の形に並べる.
+    /// 「構える」だけは 反対の手(右ききなら 左)の, 移動スティックより上に置く(撃ちながら 左手で構えられる).
     var buttons: [ButtonSpec] {
         let w = screenWidth, h = screenHeight
         func x(_ fromEdge: Float) -> Float { leftHanded ? insets.left + fromEdge : w - insets.right - fromEdge }
         func y(_ fromBottom: Float) -> Float { h - insets.bottom - fromBottom }
+        func other(_ fromEdge: Float) -> Float { leftHanded ? w - insets.right - fromEdge : insets.left + fromEdge }
         let midX = insets.left + (w - insets.left - insets.right) / 2
         return [
             ButtonSpec(button: .fire, center: Point(x: x(100), y: y(110)), radius: 70),
-            ButtonSpec(button: .aim, center: Point(x: x(232), y: y(78)), radius: 44),
+            ButtonSpec(button: .aim, center: Point(x: other(76), y: y(250)), radius: 46),
             ButtonSpec(button: .jump, center: Point(x: x(70), y: y(248)), radius: 46),
             ButtonSpec(button: .reload, center: Point(x: x(218), y: y(192)), radius: 40),
             ButtonSpec(button: .switchWeapon, center: Point(x: x(178), y: y(292)), radius: 38),
@@ -106,8 +108,9 @@ struct TouchLayout {
         let p = Point(x: x, y: y)
         if let b = button(at: p) {
             touches[id] = .button(b, last: p)
-            // 押した瞬間も覚える(1 コマより短いタップでも 撃つ・ジャンプが消えないように). 構えるは 押しているあいだだけ.
-            if b != .aim { pressedEdges.insert(b) }
+            // 押した瞬間も覚える(1 コマより短いタップでも 撃つ・ジャンプが消えないように).
+            // 構えるは タップで切りかえ(ゲームの側が `takePressed` の .aim で 入/切 する).
+            pressedEdges.insert(b)
         } else if isMoveSide(p) && !touches.values.contains(where: { if case .move = $0 { return true } else { return false } }) {
             touches[id] = .move(origin: p)
             stick = Point(x: 0, y: 0)

@@ -247,3 +247,106 @@ final class CombatTests: XCTestCase {
         XCTAssertEqual(first25 / 24, 1.0 / 9, accuracy: 0.005)
     }
 }
+
+final class AimAssistTests: XCTestCase {
+    let cam = Vec3(0.6, 4.0, 3.2)          // 足もと (0, 2, 0) の肩ごしカメラ
+    let feet = Vec3(0, 2, 0)
+
+    /// カメラから見て, 水平に yawDeg 度・距離 d の所に立つ敵.
+    func target(_ slot: Int, yawDeg: Float, distance d: Float) -> Hitscan.Target {
+        let a = yawDeg * .pi / 180
+        return Hitscan.Target(slot: slot, feet: Vec3(cam.x + sin(a) * d, 2, cam.z - cos(a) * d))
+    }
+
+    /// カメラから 敵の胸を まっすぐ見る向きを, 横に offsetDeg 度ずらしたもの.
+    func direction(toward t: Hitscan.Target, offsetDeg: Float) -> Vec3 {
+        let to = (t.feet + Vec3(0, 1.0, 0) - cam).normalized()
+        return to.rotated(around: .up, by: -offsetDeg * .pi / 180).normalized()
+    }
+
+    func testNearMissIsPulledToTheTarget() {
+        let world = makeWorld()
+        let t = target(1, yawDeg: 0, distance: 12)
+        let dir = direction(toward: t, offsetDeg: 2)          // 2 度ずれた(このままでは 体の横を通る)
+        if case .player = Hitscan.trace(world: world, origin: cam, direction: dir, maxRange: 100, targets: [t]).kind {
+            XCTFail("without help this aim should miss the player")
+        }
+        let r = AimAssist.aimPoint(world: world, cameraPosition: cam, cameraDirection: dir, shooterFeet: feet, targets: [t], maxRange: 100)
+        XCTAssertEqual(r.target, 1)
+        // 胸から その点へ撃つと 当たる.
+        var rng = SeededRandom(seed: 1)
+        var spec = WeaponSpec.spec(.assaultRifle)
+        spec.spreadHip = 0
+        let shots = Hitscan.fire(world: world, shooterFeet: feet, aimPoint: r.point, targets: [t], spec: spec, aiming: false, rng: &rng)
+        guard case .player(1, _) = shots[0].kind else { return XCTFail("\(shots[0].kind)") }
+    }
+
+    func testFarOffOrFarAwayIsNotPulled() {
+        let world = makeWorld()
+        let t = target(1, yawDeg: 0, distance: 12)
+        XCTAssertNil(AimAssist.aimPoint(world: world, cameraPosition: cam, cameraDirection: direction(toward: t, offsetDeg: 8),
+                                        shooterFeet: feet, targets: [t], maxRange: 100).target, "8 degrees off: your own aim")
+        // 遠いと 助けの角度は せまい(横に 0.9 m まで): 30 m 先で 3 度(= 1.6 m)ずれは 助けない.
+        let far = target(2, yawDeg: 0, distance: 30)
+        XCTAssertNil(AimAssist.aimPoint(world: world, cameraPosition: cam, cameraDirection: direction(toward: far, offsetDeg: 3),
+                                        shooterFeet: feet, targets: [far], maxRange: 100).target)
+        XCTAssertEqual(AimAssist.aimPoint(world: world, cameraPosition: cam, cameraDirection: direction(toward: far, offsetDeg: 1),
+                                          shooterFeet: feet, targets: [far], maxRange: 100).target, 2)
+        // 武器の届く距離の外.
+        XCTAssertNil(AimAssist.aimPoint(world: world, cameraPosition: cam, cameraDirection: direction(toward: far, offsetDeg: 0.5),
+                                        shooterFeet: feet, targets: [far], maxRange: 20).target)
+    }
+
+    func testNoHelpThroughWalls() {
+        // 敵の前に 高いかべ.
+        let t = target(1, yawDeg: 0, distance: 12)
+        let wallZ = (cam.z + t.feet.z) / 2
+        let world = makeWorld(obstacles: [.box(center: Vec3(0, 4, wallZ), half: Vec3(4, 3, 0.3))])
+        let r = AimAssist.aimPoint(world: world, cameraPosition: cam, cameraDirection: direction(toward: t, offsetDeg: 1.5),
+                                   shooterFeet: feet, targets: [t], maxRange: 100)
+        XCTAssertNil(r.target)
+    }
+
+    func testPicksTheTargetClosestToTheCrosshair() {
+        let world = makeWorld()
+        let a = target(1, yawDeg: 0, distance: 15), b = target(2, yawDeg: 3, distance: 10)
+        let r = AimAssist.aimPoint(world: world, cameraPosition: cam, cameraDirection: direction(toward: a, offsetDeg: 0.5),
+                                   shooterFeet: feet, targets: [a, b], maxRange: 100)
+        XCTAssertEqual(r.target, 1)
+    }
+
+    func testLookSlowsDownNearATarget() {
+        let t = target(1, yawDeg: 0, distance: 12)
+        XCTAssertEqual(AimAssist.lookScale(cameraPosition: cam, cameraDirection: direction(toward: t, offsetDeg: 1), targets: [t], maxRange: 100),
+                       GameRules.aimFriction)
+        XCTAssertEqual(AimAssist.lookScale(cameraPosition: cam, cameraDirection: direction(toward: t, offsetDeg: 20), targets: [t], maxRange: 100), 1)
+    }
+
+    func testAssistOffMeansPlainAim() {
+        let world = makeWorld()
+        let t = target(1, yawDeg: 0, distance: 12)
+        let r = AimAssist.aimPoint(world: world, cameraPosition: cam, cameraDirection: direction(toward: t, offsetDeg: 2),
+                                   shooterFeet: feet, targets: [t], maxRange: 100, degrees: 0)
+        XCTAssertNil(r.target)
+    }
+}
+
+final class AimButtonTests: XCTestCase {
+    func testAimIsOnTheOtherHandAndIsATap() throws {
+        var t = TouchLayout(width: 844, height: 390)
+        t.insets = .init(left: 47, right: 47, top: 0, bottom: 21)
+        let aim = try XCTUnwrap(t.buttons.first { $0.button == .aim })
+        let fire = try XCTUnwrap(t.buttons.first { $0.button == .fire })
+        XCTAssertLessThan(aim.center.x, 422, "right-handed: aim on the left")
+        XCTAssertGreaterThan(fire.center.x, 422)
+        // 移動の指(左下)と 構える を同時に使える.
+        t.touchBegan(id: 1, x: 200, y: 330)
+        t.touchMoved(id: 1, x: 200, y: 280)
+        t.touchBegan(id: 2, x: aim.center.x, y: aim.center.y)
+        XCTAssertGreaterThan(t.move.y, 0.5)
+        t.touchEnded(id: 2)
+        XCTAssertEqual(t.takePressed(), [.aim], "a tap is recorded so the game can toggle aiming")
+        t.leftHanded = true
+        XCTAssertGreaterThan(t.buttons.first { $0.button == .aim }!.center.x, 422, "left-handed: aim on the right")
+    }
+}

@@ -9,6 +9,19 @@ enum GameRules {
     /// 物理を進める固定の刻み(秒).
     static let tick: Float = 1.0 / 60
 
+    // MARK: ねらいの助け(`AimAssist`)
+    /// 照準からこの角度(度)までの敵へ 弾を引きよせる.
+    static let aimAssistDegrees: Float = 3
+    /// ただし 遠いときは 「照準から横に この長さ(m)」まで(遠くの敵を勝手に当てないため).
+    static let aimAssistRadius: Float = 0.9
+    /// 照準が敵の近く(この角度. 度)にあるあいだ, 視点の動きを この割合にする.
+    static let aimFrictionDegrees: Float = 4
+    static let aimFriction: Float = 0.5
+
+    // MARK: ホストの確かめ
+    /// 当たりの申し出が かたまって届いてもよい数(`HostLogic` の連射の確かめ).
+    static let claimBurst = 3
+
     // MARK: 体力
     static let maxHP = 100
     static let maxShield = 50

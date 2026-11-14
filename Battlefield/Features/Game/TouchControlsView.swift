@@ -107,9 +107,9 @@ struct ControlButtonsOverlay: View {
         }
     }
 
-    private static func label(_ b: TouchLayout.Button) -> String? {
+    private func label(_ b: TouchLayout.Button) -> String? {
         switch b {
-        case .aim: return "構える"
+        case .aim: return controller.isAimingOn ? "構え中" : "構える"
         case .jump: return "ジャンプ"
         case .reload: return "リロード"
         case .switchWeapon: return "武器"
@@ -132,11 +132,12 @@ struct ControlButtonsOverlay: View {
                         .position(x: CGFloat(stick.knob.x), y: CGFloat(stick.knob.y))
                 }
                 ForEach(layout.activeButtons, id: \.button) { spec in
-                    let held = layout.isHeld(spec.button)
+                    // 構えるは タップで 入/切. 入っているあいだ 明るく.
+                    let held = spec.button == .aim ? controller.isAimingOn : layout.isHeld(spec.button)
                     VStack(spacing: 1) {
                         Image(systemName: Self.symbol(spec.button))
                             .font(.system(size: CGFloat(spec.radius) * (spec.button == .fire ? 0.62 : 0.5), weight: .heavy))
-                        if let text = Self.label(spec.button) {
+                        if let text = label(spec.button) {
                             Text(text).font(.system(size: 10, weight: .heavy, design: .rounded))
                         }
                     }

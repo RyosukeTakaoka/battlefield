@@ -149,13 +149,11 @@ final class TouchLayoutTests: XCTestCase {
         XCTAssertEqual(t.takePressed(), [])
         t.touchEnded(id: 1)
         XCTAssertFalse(t.isHeld(.fire))
-        // 構えるは 押しているあいだ.
+        // 構えるは タップ(押した瞬間を記録. 入/切 は ゲームの側).
         let aim = try XCTUnwrap(t.buttons.first { $0.button == .aim })
         t.touchBegan(id: 3, x: aim.center.x, y: aim.center.y)
-        XCTAssertTrue(t.isHeld(.aim))
-        XCTAssertEqual(t.takePressed(), [])
+        XCTAssertEqual(t.takePressed(), [.aim])
         t.touchEnded(id: 3)
-        XCTAssertFalse(t.isHeld(.aim))
     }
 
     func testLeftHandedSwapsTheSides() throws {

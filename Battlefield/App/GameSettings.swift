@@ -23,6 +23,8 @@ struct GameSettings: Codable, Equatable {
     var botLevel = 1
     /// 通信のようす(人数・時計のずれ)を画面に出す(確かめる用).
     var showNetStats = false
+    /// ねらいの助け(照準の近くの敵へ 弾を引きよせる・視点を少し遅くする).
+    var aimAssist = true
 
     var practiceKind: GameMode.Kind { GameMode.Kind(rawValue: UInt8(practiceKindRaw)) ?? .roundBattle }
 
@@ -52,6 +54,7 @@ struct GameSettings: Codable, Equatable {
         practiceBots = try c.decodeIfPresent(Int.self, forKey: .practiceBots) ?? d.practiceBots
         botLevel = try c.decodeIfPresent(Int.self, forKey: .botLevel) ?? d.botLevel
         showNetStats = try c.decodeIfPresent(Bool.self, forKey: .showNetStats) ?? d.showNetStats
+        aimAssist = try c.decodeIfPresent(Bool.self, forKey: .aimAssist) ?? d.aimAssist
     }
 
     static func load() -> GameSettings {
