@@ -203,4 +203,47 @@ final class CombatTests: XCTestCase {
         }
         XCTAssertEqual(Hitscan.perturbed(base, spreadDegrees: 0, rng: &rng), base)
     }
+
+    /// 撃つボタンを指で押しっぱなしにすると, 武器の表の速さで撃ち続ける(60 Hz でも 120 Hz の画面でも).
+    func testHoldingTheFireButtonWithAFinger() throws {
+        for fps in [60.0, 120.0] {
+            // ショットガンは 1.1 発/秒 → 0 秒と 0.91 秒の 2 発
+            for (kind, perSecond) in [(WeaponKind.assaultRifle, 9), (.handgun, 4), (.shotgun, 2), (.sniper, 1)] {
+                var touch = TouchLayout(width: 844, height: 390)
+                let fire = try XCTUnwrap(touch.buttons.first { $0.button == .fire })
+                var loadout = Loadout(weapons: [kind, nil])
+                touch.touchBegan(id: 1, x: fire.center.x, y: fire.center.y)
+                var shots = 0
+                var t = 0.0
+                while t < 1.0 - 1e-9 {
+                    // 親指が少しゆれても 押しっぱなしのまま.
+                    touch.touchMoved(id: 1, x: fire.center.x + Float(sin(t * 30)) * 6, y: fire.center.y)
+                    let pressed = touch.takePressed()
+                    loadout.update(now: t)
+                    if loadout.pullTrigger(held: touch.isHeld(.fire) || pressed.contains(.fire), now: t) { shots += 1 }
+                    t += 1 / fps
+                }
+                XCTAssertEqual(shots, perSecond, "\(kind) \(Int(fps)) Hz")
+            }
+        }
+    }
+
+    /// アサルトライフルを押しっぱなし: 25 発うちきると 自動でリロードし, 押したままなら また撃ちはじめる.
+    func testHoldingFireThroughAReload() {
+        var l = Loadout(weapons: [.assaultRifle, nil])
+        var times: [Double] = []
+        var t = 0.0
+        while t < 6 {
+            l.update(now: t)
+            if l.pullTrigger(held: true, now: t) { times.append(t) }
+            t += 1.0 / 60
+        }
+        XCTAssertEqual(times.prefix(25).count, 25)
+        // 25 発目のあと 2.0 秒のリロード. そのあと 押したまま撃ちはじめる.
+        XCTAssertEqual(times[25] - times[24], 2.0, accuracy: 0.05)
+        XCTAssertEqual(times.count, 37)                  // 2.67 秒で 25 発 → 2 秒リロード → のこり 1.33 秒で 12 発
+        // 連射の間かくは 平均して 1/9 秒.
+        let first25 = times[24] - times[0]
+        XCTAssertEqual(first25 / 24, 1.0 / 9, accuracy: 0.005)
+    }
 }

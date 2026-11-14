@@ -52,7 +52,7 @@ python3 Tools/map/build_arena.py
 ## 最初のビルドで確かめること(AI が書き足していく表)
 
 Linux で書いたため, Apple の部品を使うファイルは **まだ一度もコンパイルしていません**(文法だけは `swiftc -parse` で確かめた).
-Core(`Battlefield/Core/`)は Linux で 165 件のテストが通っています. 下の表のとおり, 使っている API の一覧です.
+Core(`Battlefield/Core/`)は Linux で 167 件のテストが通っています. 下の表のとおり, 使っている API の一覧です.
 エラーが出たら, 赤い文字を そのまま AI に貼ってください.
 
 | 場所 | 使っている API | 根拠 |

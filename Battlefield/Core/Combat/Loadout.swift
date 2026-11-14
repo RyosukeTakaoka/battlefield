@@ -57,7 +57,10 @@ struct Loadout: Equatable {
         }
         guard canFire(now: now) else { return false }
         ammo[selected] -= 1
-        nextFireTime = now + Double(spec.fireInterval)
+        // 押しっぱなしで撃ち続けているときは「予定の時刻 + 間隔」で次を決める(画面のコマの切れ目を待つぶん
+        // 毎回おくれて, 連射が表の速さより遅くなるのを防ぐ). 間があいたときは 今から数える.
+        let interval = Double(spec.fireInterval)
+        nextFireTime = (wasTriggerHeld && now - nextFireTime < interval) ? nextFireTime + interval : now + interval
         if ammo[selected] == 0 { startReload(now: now) }
         return true
     }
